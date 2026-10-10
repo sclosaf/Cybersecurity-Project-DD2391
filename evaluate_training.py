@@ -37,14 +37,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        "-r",
-        "--report",
-        required=False,
-        action="store_true",
-        help="Report the results to an output file"
-    )
-
-    parser.add_argument(
         "-s",
         "--sid",
         type=int,
@@ -324,55 +316,20 @@ def main():
 
     total = tp + fn + fp + tn
 
-    print(f"TP    : {tp:,}")
-    print(f"FN    : {fn:,}")
-    print(f"FP    : {fp:,}")
-    print(f"TN    : {tn:,}")
-    print(f"Total : {total:,}")
+    print(f"tp    : {tp:,}")
+    print(f"fn    : {fn:,}")
+    print(f"fp    : {fp:,}")
+    print(f"tn    : {tn:,}")
+    print(f"total : {total:,}")
     print()
 
 
-    print(f"Recall    : {tp / (tp + fn):.4%}" if tp + fn else "Recall    : N/A") # Measures the proportion of actual attack flows that were correctly detected.
-    print(f"Precision : {tp / (tp + fp):.4%}" if tp + fp else "Precision : N/A") # Measures the proportion of detected flows that were actually attacks.
-    print(f"FPR        : {fp / (fp + tn):.4%}" if fp + tn else "FPR       : N/A") # Measures the proportion of benign flows that were incorrectly classified as attacks.
-    print(f"TNR        : {tn / (tn + fp):.4%}" if tn + fp else "TNR       : N/A") # Measures the proportion of benign flows that were incorrectly classified as attacks.
-    print( f"F1        : {2 * tp / (2 * tp + fp + fn):.4%}" if 2 * tp + fp + fn else "F1       : N/A") # Harmonic mean of precision and recall.
+    print(f"recall    : {tp / (tp + fn):.4%}" if tp + fn else "recall    : n/a") # measures the proportion of actual attack flows that were correctly detected.
+    print(f"precision : {tp / (tp + fp):.4%}" if tp + fp else "precision : n/a") # measures the proportion of detected flows that were actually attacks.
+    print(f"fpr        : {fp / (fp + tn):.4%}" if fp + tn else "fpr       : n/a") # measures the proportion of benign flows that were incorrectly classified as attacks.
+    print(f"tnr        : {tn / (tn + fp):.4%}" if tn + fp else "tnr       : n/a") # measures the proportion of benign flows that were incorrectly classified as attacks.
+    print( f"f1        : {2 * tp / (2 * tp + fp + fn):.4%}" if 2 * tp + fp + fn else "f1       : n/a") # harmonic mean of precision and recall.
     print()
-
-    if args.report:
-        report = Path("report.csv")
-        with open(report, "w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            writer.writerow([
-                "classification",
-                "frame_number",
-                "src_ip",
-                "src_port",
-                "dst_ip",
-                "dst_port",
-                "proto", "label",
-                "flow_detected",
-                "signatures",
-            ])
-
-            order = {"TP": 0, "FN": 1, "FP": 2, "TN": 3}
-            records.sort(key=lambda r: (order[r["classification"]], int(r["frame_number"]) if r["frame_number"] else 0))
-
-            for record in records:
-                writer.writerow([
-                    record["classification"],
-                    record["frame_number"],
-                    record["src_ip"],
-                    record["src_port"],
-                    record["dst_ip"],
-                    record["dst_port"],
-                    record["proto"],
-                    record["label"],
-                    record["flow_detected"],
-                    record["signatures"],
-                ])
-
-        print(f"Report written to {report}")
 
 if __name__ == "__main__":
     main()
