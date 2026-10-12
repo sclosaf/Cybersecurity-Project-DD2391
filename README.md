@@ -10,3 +10,8 @@
 
 [Build rules](https://www.kaggle.com/datasets/mohamedamineferrag/edgeiiotset-cyber-security-dataset-of-iot-iiot/data)
 [Test rules](https://research.unsw.edu.au/projects/unsw-nb15-dataset)
+
+
+# Suricata does not support rules for ARP
+# UNSW is too big and out of scope
+
