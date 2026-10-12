@@ -13,7 +13,7 @@ TEST_CSV="$PROJECT_DIR/datasets/csv/test"
 
 SURICATA_DIR="$PROJECT_DIR/suricata"
 
-declare -A ATTACKS=(
+declare -A TRAINING=(
     [1]="Backdoor-attack"
     [2]="DDoS-HTTP-Flood-attacks"
     [3]="DDoS-ICMP-Flood-attacks"
@@ -28,6 +28,24 @@ declare -A ATTACKS=(
     [12]="Uploading-attack"
     [13]="Vulnerability-scanner-attack"
     [14]="XSS-attacks"
+    [15]="Distance"
+    [16]="Flame_Sensor"
+    [17]="Heart_Rate"
+    [18]="IR_Receiver"
+    [19]="Modbus"
+    [20]="phValue"
+    [21]="Soil_Moisture"
+    [22]="Sound_Sensor"
+    [23]="Temperature_and_Humidity"
+    [24]="Water_Level"
+)
+
+declare -A DAYS=(
+    [1]="monday"
+    [2]="tuesday"
+    [3]="wednesday"
+    [4]="thursday"
+    [5]="friday"
 )
 
 MODE=""
@@ -36,18 +54,25 @@ NUMBER=""
 usage()
 {
     echo "Usage:"
-    echo "  $0 -m 0 -n N    Training: process the selected attack and evaluate its CSV"
-    echo "  $0 -m 1         Test: process all test PCAPs and evaluate all 4 CSVs"
+    echo "  $0 -m 0 -n N    Training: process the selected training set and evaluate its CSV"
+    echo "  $0 -m 1 -n N    Test: process the PCAP of the selected test and evaluate its CSV"
     echo
     echo "Options:"
     echo "  -m MODE         0 = training, 1 = test"
-    echo "  -n NUMBER       Attack index (required with -m 0)"
+    echo "  -n NUMBER       Dataset index (required with -m 0) or test (required with -m 1)"
     echo "  -h              Display this help message"
     echo
-    echo "Available training attacks:"
+    echo "Available trainings:"
 
-    for key in $(printf '%s\n' "${!ATTACKS[@]}" | sort -n); do
-        echo "  $key) ${ATTACKS[$key]}"
+    for key in $(printf '%s\n' "${!TRAINING[@]}" | sort -n); do
+        echo "  $key) ${TRAINING[$key]}"
+    done
+
+    echo
+    echo "Available tests:"
+
+    for key in $(printf '%s\n' "${!DAYS[@]}" | sort -n); do
+        echo "  $key) ${DAYS[$key]}"
     done
 
     exit 1
@@ -64,11 +89,7 @@ run_suricata()
     echo
     echo "Processing PCAP: $(basename "$pcap")"
 
-    sudo suricata \
-        -r "$pcap" \
-        -S "$RULES" \
-        -l "$output_dir" \
-        -k none
+    sudo suricata -r "$pcap" -S "$RULES" -l "$output_dir" -k none || echo "WARNING: suricata exit code $? on $(basename "$pcap")" >&2
 
     if [[ ! -f "$output_dir/eve.json" ]]; then
         echo "ERROR: Suricata did not generate $output_dir/eve.json" >&2
@@ -96,13 +117,16 @@ main()
 
     if [[ "$MODE" == "0" ]]; then
         if [[ ! "$NUMBER" =~ ^[0-9]+$ ]] ||
-           [[ -z "${ATTACKS[$NUMBER]+present}" ]]; then
-            echo "ERROR: Invalid attack number '${NUMBER:-<missing>}'." >&2
+           [[ -z "${TRAINING[$NUMBER]+present}" ]]; then
+            echo "ERROR: Invalid training number '${NUMBER:-<missing>}'." >&2
             usage
         fi
-    elif [[ -n "$NUMBER" ]]; then
-        echo "ERROR: The -n option is only available in training mode." >&2
-        exit 1
+    else
+        if [[ ! "$NUMBER" =~ ^[0-9]+$ ]] ||
+           [[ -z "${DAYS[$NUMBER]+present}" ]]; then
+            echo "ERROR: Invalid test number '${NUMBER:-<missing>}'." >&2
+            usage
+        fi
     fi
 
     for cmd in suricata python3; do
@@ -141,7 +165,7 @@ main()
     mkdir -p "$SURICATA_DIR"
 
     if [[ "$MODE" == "0" ]]; then
-        NAME="${ATTACKS[$NUMBER]}"
+        NAME="${TRAINING[$NUMBER]}"
         PCAP="$TRAIN_PCAP/$NAME.pcap"
         CSV="$TRAIN_CSV/$NAME.csv"
         OUT="$SURICATA_DIR/training/$NAME"
@@ -164,42 +188,26 @@ main()
             --pcap "$PCAP"
 
     else
-        shopt -s nullglob
-        pcaps=("$TEST_PCAP"/*.pcap)
-        csvs=("$TEST_CSV"/*.csv)
-        shopt -u nullglob
+        NAME="${DAYS[$NUMBER]}"
+        PCAP="$TEST_PCAP/$NAME.pcap"
+        CSV="$TEST_CSV/$NAME.csv"
+        OUT="$SURICATA_DIR/test/$NAME"
 
-        if [[ "${#pcaps[@]}" -eq 0 ]]; then
-            echo "ERROR: No test PCAPs found in $TEST_PCAP" >&2
+        if [[ ! -f "$PCAP" ]]; then
+            echo "ERROR: PCAP not found: $PCAP" >&2
             exit 1
         fi
 
-        if [[ "${#csvs[@]}" -ne 4 ]]; then
-            echo "ERROR: Expected exactly 4 test CSV files, found ${#csvs[@]} in $TEST_CSV" >&2
+        if [[ ! -f "$CSV" ]]; then
+            echo "ERROR: Matching CSV not found: $CSV" >&2
             exit 1
         fi
 
-        OUT="$SURICATA_DIR/test"
-        EVE_DIR="$OUT/individual_eve"
-        MERGED_EVE="$OUT/eve.json"
-
-        mkdir -p "$EVE_DIR"
-        : > "$MERGED_EVE"
-
-        for pcap in "${pcaps[@]}"; do
-            base="$(basename "$pcap" .pcap)"
-            pcap_out="$EVE_DIR/$base"
-
-            run_suricata "$pcap" "$pcap_out"
-
-            cat "$pcap_out/eve.json" >> "$MERGED_EVE"
-        done
-
-        printf '  %s\n' "${csvs[@]}"
+        run_suricata "$PCAP" "$OUT"
 
         python3 "$PROJECT_DIR/evaluate_test.py" \
-            --eve "$MERGED_EVE" \
-            --csv "${csvs[@]}"
+            --eve "$OUT/eve.json" \
+            --csv "$CSV"
 
     fi
 }

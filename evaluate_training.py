@@ -9,8 +9,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
 def parse_args():
-
-    parser = argparse.ArgumentParser(description="Evaluate Suricata alerts against csv ground truth.")
+    parser = argparse.ArgumentParser(description="Evaluate Suricata alerts against csv ground truth (training rules).")
 
     parser.add_argument(
         "-e",
@@ -55,7 +54,7 @@ def load_pcap_timestamps(pcap_path):
         i = 0
         while True:
             try:
-                ts, buf = next(reader)
+                ts, _ = next(reader)
                 i += 1
 
                 dt = datetime.fromtimestamp(ts, tz=tz)
@@ -158,16 +157,15 @@ def read_ground_truth(csv_path, ts_to_frame):
 
     for flow in flows.values():
         if flow["label"] == "1":
-            attack_rows += 1
+            attack_rows += len(flow["frames"])
         else:
-            benign_rows += 1
+            benign_rows += len(flow["frames"])
 
     return flows, total_rows, invalid_rows, attack_rows, benign_rows
 
 def read_eve(eve_path, sid):
 
     alert_frames = set()
-    alert_details = {}
 
     total_alerts = 0
     target_alerts = 0
@@ -204,11 +202,6 @@ def read_eve(eve_path, sid):
             frame_number = str(pcap_cnt)
             alert_frames.add(frame_number)
 
-            if frame_number not in alert_details:
-                alert_details[frame_number] = []
-
-            alert_details[frame_number].append(signature)
-
     return {
         "alert_frames": alert_frames,
         "total_alerts": total_alerts,
@@ -219,78 +212,49 @@ def read_eve(eve_path, sid):
 
 def evaluate(flows, eve_data):
     alert_frames = eve_data["alert_frames"]
-    alert_details = eve_data.get("alert_details", {})
 
     tp = 0
     fn = 0
     fp = 0
     tn = 0
 
-    records = []
-
-    for key, flow in flows.items():
+    for flow in flows.values():
         attack = flow["label"] == "1"
 
-        detected_frames = [f for f in flow["frames"] if f in alert_frames]
-        flow_detected = len(detected_frames) > 0
-
-        sigs = []
-        for f in detected_frames:
-            sigs.extend(alert_details.get(f, []))
-        sigs = "|".join(sorted(set(sigs)))
+        detected = any(f in alert_frames for f in flow["frames"])
 
         for frame_number in flow["frames"]:
-            if attack and flow_detected:
-                classification = "TP"
+            if attack and detected:
                 tp += 1
-            elif attack and not flow_detected:
-                classification = "FN"
+            elif attack and not detected:
                 fn += 1
-            elif not attack and flow_detected:
-                classification = "FP"
+            elif not attack and detected:
                 fp += 1
-            else:
-                classification = "TN"
+            elif not attack and not detected:
                 tn += 1
 
-            records.append({
-                "classification": classification,
-                "frame_number": frame_number,
-                "src_ip": flow["src_ip"],
-                "src_port": flow["src_port"],
-                "dst_ip": flow["dst_ip"],
-                "dst_port": flow["dst_port"],
-                "proto": flow["proto"],
-                "label": flow["label"],
-                "flow_detected": int(flow_detected),
-                "signatures": sigs,
-            })
-
-    return tp, fn, fp, tn, records
+    return tp, fn, fp, tn
 
 def main():
-
     args = parse_args()
 
-    print("Starting network analysis evaluation...")
-
-    print("Using the following configuration:")
+    print("Starting Suricata alert evaluation...")
     print(f"EVE : {args.eve}")
     print(f"CSV : {args.csv}")
     print(f"SID : {'all' if args.sid is None else args.sid}")
     print()
 
-    print(f"Loading PCAP timestamps...")
+    print("Loading PCAP timestamps...")
 
     ts_to_frame = load_pcap_timestamps(args.pcap)
 
-    print(f"PCAP index: {len(ts_to_frame)} frames")
+    print(f"PCAP contains {len(ts_to_frame)} frames")
 
     print("Reading csv ground truth...")
 
     (frames, total_rows, invalid_rows, attack_frames, benign_frames) = read_ground_truth(args.csv, ts_to_frame)
 
-    print(f"CSV rows            : {total_rows:,}")
+    print(f"CSV rows             : {total_rows:,}")
     print(f"CSV unique frames    : {len(frames):,}")
     print(f"Attack frames        : {attack_frames:,}")
     print(f"Benign frames        : {benign_frames:,}")
@@ -309,26 +273,28 @@ def main():
 
     if eve_data["signatures"]:
         print("Evaluated signatures:")
-        for signature, count in eve_data["signatures"].most_common(): print(f"  {count:6,}  {signature}")
+        for signature, count in eve_data["signatures"].most_common():
+            print(f"  {count:6,}  {signature}")
         print()
 
-    (tp, fn, fp, tn, records) = evaluate(frames, eve_data)
-
+    print("Computing evaluation...")
+    tp, fn, fp, tn = evaluate(frames, eve_data)
     total = tp + fn + fp + tn
 
-    print(f"tp    : {tp:,}")
-    print(f"fn    : {fn:,}")
-    print(f"fp    : {fp:,}")
-    print(f"tn    : {tn:,}")
-    print(f"total : {total:,}")
+    print("Metrics:")
+    print(f"TP    : {tp:,}")
+    print(f"FN    : {fn:,}")
+    print(f"FP    : {fp:,}")
+    print(f"TN    : {tn:,}")
+    print(f"Total : {total:,}")
     print()
 
-
-    print(f"recall    : {tp / (tp + fn):.4%}" if tp + fn else "recall    : n/a") # measures the proportion of actual attack flows that were correctly detected.
-    print(f"precision : {tp / (tp + fp):.4%}" if tp + fp else "precision : n/a") # measures the proportion of detected flows that were actually attacks.
-    print(f"fpr        : {fp / (fp + tn):.4%}" if fp + tn else "fpr       : n/a") # measures the proportion of benign flows that were incorrectly classified as attacks.
-    print(f"tnr        : {tn / (tn + fp):.4%}" if tn + fp else "tnr       : n/a") # measures the proportion of benign flows that were incorrectly classified as attacks.
-    print( f"f1        : {2 * tp / (2 * tp + fp + fn):.4%}" if 2 * tp + fp + fn else "f1       : n/a") # harmonic mean of precision and recall.
+    print(f"Recall    : {tp / (tp + fn):.4%}" if tp + fn else "Recall    : N/A")
+    print(f"Precision : {tp / (tp + fp):.4%}" if tp + fp else "Precision : N/A")
+    print(f"FPR       : {fp / (fp + tn):.4%}" if fp + tn else "FPR       : N/A")
+    print(f"TNR       : {tn / (tn + fp):.4%}" if tn + fp else "TNR       : N/A")
+    print(f"Accuracy  : {(tp + tn) / total:.4%}" if total else "Accuracy : N/A")
+    print(f"F1        : {2 * tp / (2 * tp + fp + fn):.4%}" if 2 * tp + fp + fn else "F1       : N/A")
     print()
 
 if __name__ == "__main__":

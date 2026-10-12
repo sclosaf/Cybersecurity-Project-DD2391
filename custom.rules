@@ -176,70 +176,84 @@ alert http any any -> any any (msg:"XSS: confirm() in body encoded"; flow:to_ser
 
 # Port scanning
 
-alert tcp any any -> any any (msg:"Port scan: SYN flood from one host"; flags:S; detection_filter:track by_src, count 30, seconds 10; sid:1000201;)
+#alert tcp any any -> any any (msg:"Port scan: SYN flood from one host"; flags:S; detection_filter:track by_src, count 30, seconds 10; sid:1000200;)
 
 alert tcp any any -> any any (msg:"Port scan: many closed port replies"; flags:RA; detection_filter:track by_dst, count 20, seconds 60; sid:1000202;)
 
-alert tcp any any -> any any (msg:"Port scan: NULL scan"; flags:0; sid:1000203;)
+alert tcp any any -> any any (msg:"Port scan: FIN scan"; flags:F; sid:1000208;)
 
-alert tcp any any -> any any (msg:"Port scan: FIN scan"; flags:F; sid:1000204;)
+alert tcp any any -> any any (msg:"Port scan: Nmap SYN window 1024"; flags:S; window:1024; sid:1000210;)
 
-alert tcp any any -> any any (msg:"Port scan: Xmas scan"; flags:FPU; sid:1000205;)
-
-alert tcp any any -> any any (msg:"Port scan: SYN+FIN invalid"; flags:SF; sid:1000206;)
-
-alert tcp any any -> any any (msg:"Port scan: Nmap SYN window 1024"; flags:S; window:1024; sid:1000207;)
-
-alert icmp any any -> any any (msg:"Port scan: UDP port unreachable"; itype:3; icode:3; detection_filter:track by_dst, count 20, seconds 60; sid:1000208;)
+alert icmp any any -> any any (msg:"Port scan: UDP port unreachable"; itype:3; icode:3; detection_filter:track by_dst, count 20, seconds 60; sid:1000211;)
 
 alert tcp any any -> any any (msg:"Port scan: SYN window 512"; flags:S; window:512; sid:1000101;)
 
-alert tcp any any -> any any (msg:"Port scan: SYN without options"; flags:S; tcp.hdr; bsize:20; sid:1000102;)
+#alert tcp any any -> any any (msg:"Port scan: SYN without options"; flags:S; tcp.hdr; bsize:20; sid:1000102;)
+
+# DoS
+alert tcp any any -> any any (msg:"DoS: SYN flood"; flags:S,12; flow:stateless; threshold:type both, track by_dst, count 300, seconds 5; sid:1000201;)
+
+alert udp any any -> any any (msg:"DoS: UDP flood"; threshold:type both, track by_dst, count 500, seconds 5; sid:1000213;)
+
+alert icmp any any -> any any (msg:"DoS: ICMP echo flood"; itype:8; threshold:type both, track by_dst, count 100, seconds 5; sid:1000215;)
+
+# Reconnaissance
+alert tcp any any -> any any (msg:"Recon: SYN scan"; flags:S,12; flow:stateless; threshold:type both, track by_src, count 100, seconds 10; sid:1000214;)
+
+alert tcp any any -> any any (msg:"Recon: many RST/ACK replies (closed ports)"; flags:RA; flow:stateless; threshold:type both, track by_dst, count 20, seconds 60; sid:1000203;)
+
+alert icmp any any -> any any (msg:"Recon: ICMP port unreachable burst"; itype:3; icode:3; threshold:type both, track by_dst, count 20, seconds 60; sid:1000212;)
+
+alert icmp any any -> any any (msg:"Recon: ICMP sweep"; itype:8; threshold:type both, track by_src, count 20, seconds 10; sid:1000216;)
+
+alert tcp any any -> any any (msg:"Recon: NULL scan"; flags:0; sid:1000204;)
+
+alert tcp any any -> any any (msg:"Recon: Xmas scan"; flags:FPU; sid:1000207;)
+
+alert tcp any any -> any any (msg:"Recon: SYN+FIN invalid"; flags:SF; sid:1000206;)
 
 # ICMP flood
 
-alert icmp any any -> $HOME_NET any (msg:"ICMP flood echo requests (burst flood)"; itype:8; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006001;)
+alert icmp any any -> any any (msg:"ICMP flood echo requests (burst flood)"; itype:8; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006001;)
 
-alert icmp any any -> $HOME_NET any (msg:"ICMP flood echo requests (extended flood)"; itype:8; detection_filter: track by_dst, count 2000, seconds 10; classtype:attempted-dos; sid:1006002;)
+alert icmp any any -> any any (msg:"ICMP flood echo requests (extended flood)"; itype:8; detection_filter: track by_dst, count 2000, seconds 10; classtype:attempted-dos; sid:1006002;)
 
-alert icmp any any -> $HOME_NET any (msg:"ICMP flood echo requests (empty payload)"; itype:8; dsize:0; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006003;)
+alert icmp any any -> any any (msg:"ICMP flood echo requests (empty payload)"; itype:8; dsize:0; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006003;)
 
-# TCP SYN flood 
+# TCP SYN flood
 
-alert tcp any any -> $HOME_NET any (msg:"TCP SYN flood (burst flood)"; tcp.flags:S; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006004;)
+alert tcp any any -> any any (msg:"TCP SYN flood (burst flood)"; tcp.flags:S; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006004;)
 
-alert tcp any any -> $HOME_NET any (msg:"TCP SYN flood (extended flood)"; tcp.flags:S; detection_filter: track by_dst, count 2000, seconds 10; classtype:attempted-dos; sid:1006005;)
+alert tcp any any -> any any (msg:"TCP SYN flood (extended flood)"; tcp.flags:S; detection_filter: track by_dst, count 2000, seconds 10; classtype:attempted-dos; sid:1006005;)
 
-alert tcp any any -> $HOME_NET any (msg:"TCP SYN flood (no options)"; tcp.flags:S; tcp.hdr; bsize:20; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006006;)
+alert tcp any any -> any any (msg:"TCP SYN flood (no options)"; tcp.flags:S; tcp.hdr; bsize:20; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006006;)
 
-alert tcp $HOME_NET any -> any any (msg:"TCP SYN flood victim answering with many RSTs"; tcp.flags:RA; detection_filter: track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1006007;)
+alert tcp any any -> any any (msg:"TCP SYN flood victim answering with many RSTs"; tcp.flags:RA; detection_filter: track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1006007;)
 
-# UDP flood 
+# UDP flood
 
-alert udp any any -> $HOME_NET any (msg:"UDP flood (burst flood)"; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006008;)
+alert udp any any -> any any (msg:"UDP flood (burst flood)"; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006008;)
 
-alert udp any any -> $HOME_NET any (msg:"UDP flood (extended flood)"; detection_filter: track by_dst, count 2000, seconds 10; classtype:attempted-dos; sid:1006009;)
+alert udp any any -> any any (msg:"UDP flood (extended flood)"; detection_filter: track by_dst, count 2000, seconds 10; classtype:attempted-dos; sid:1006009;)
 
-alert udp any any -> $HOME_NET any (msg:"UDP flood (empty payload)"; dsize:0; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006010;)
+alert udp any any -> any any (msg:"UDP flood (empty payload)"; dsize:0; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006010;)
 
-alert icmp $HOME_NET any -> any any (msg:"UDP flood victim sending many ICMP unreachables"; itype:3; detection_filter: track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1006011;)
+alert icmp any any -> any any (msg:"UDP flood victim sending many ICMP unreachables"; itype:3; detection_filter: track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1006011;)
 
 # HTTP DDoS
 
-alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (GET burst)"; flow:established, to_server; http.method; content:"GET"; detection_filter: track by_dst, count 500, seconds 1; sid:1007001;)
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (GET burst)"; flow:established,to_server; http.method; content:"GET"; detection_filter: track by_dst, count 500, seconds 1; sid:1007021;)
 
-alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (POST burst"; flow:established, to_server; http.method; content:"POST"; detection_filter: track by_dst, count 500, seconds 1; sid:1007002;)
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (POST burst)"; flow:established,to_server; http.method; content:"POST"; detection_filter: track by_dst, count 500, seconds 1; sid:1007022;)
 
-alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (GET flood)"; flow:established, to_server; http.method; content:"GET"; detection_filter: track by_dst, count 1000, seconds 10; sid:1007003;)
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (GET flood)"; flow:established,to_server; http.method; content:"GET"; detection_filter: track by_dst, count 1000, seconds 10; sid:1007023;)
 
-alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (POST flood)"; flow:established, to_server; http.method; content:"POST"; detection_filter: track by_dst, count 1000, seconds 10; sid:1007004;)
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (POST flood)"; flow:established,to_server; http.method; content:"POST"; detection_filter: track by_dst, count 1000, seconds 10; sid:1007024;)
 
 # OS Fingerprinting
 
-alert tcp any any -> any 65535 (msg:"Possible OS Fingerprinting attack"; flow:to_server; flags:S; classtype:attempted_recon; sid:1008001;)
+alert tcp any any -> any 65535 (msg:"Possible OS Fingerprinting attack"; flow:to_server; flags:S; classtype:attempted-recon; sid:1008001;)
 
 # MITM
 
-alert mdns any any -> any any (msg:"Possible MDNS Spoofing"; detection_filter: track by_src, count 5, seconds 3; classtype:mitm; sid:1009001;) #Many false positives
-
-#Suricata does not support rules for ARP
+alert mdns any any -> any any (msg:"Possible MDNS Spoofing"; detection_filter: track by_src, count 5, seconds 3; sid:1009001;)

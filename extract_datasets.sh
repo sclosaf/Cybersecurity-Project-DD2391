@@ -10,7 +10,7 @@ skipped=0
 pcap_count=0
 csv_count=0
 
-echo "WARNING: This script may extract at least 100 GB of data."
+echo "WARNING: This script may extract at least 10 GB of data."
 echo "Make sure you have enough free disk space."
 
 read -r -p "Do you want to continue? [y/N]: " approval
@@ -31,7 +31,7 @@ command -v 7z >/dev/null 2>&1 || {
 }
 
 while IFS= read -r -d '' archive; do
-    file="${archive%.7z}"
+    file="${archive%.7z.001}"
     ((total += 1))
 
     case "${file,,}" in
@@ -57,10 +57,29 @@ while IFS= read -r -d '' archive; do
     echo
     echo "[$total] Extracting [$type]: $archive"
 
-    if 7z e "$archive" "-o$(dirname "$file")" -y >/dev/null; then
-        if [[ -f "$file" ]]; then
-            echo "OK Extracted [$type]: $file"
-            ((success += 1))
+    if ! 7z t "$archive" >/dev/null; then
+        echo "ERROR Archive verification failed: $archive"
+        ((failed += 1))
+        continue
+    fi
+
+    tmpdir=$(mktemp -d "$(dirname "$file")/.extract.XXXXXX") || {
+        echo "ERROR Cannot create temporary directory for: $file"
+        ((failed += 1))
+        continue
+    }
+
+    if 7z e "$archive" "-o$tmpdir" -y >/dev/null; then
+        extracted="$tmpdir/$(basename "$file")"
+
+        if [[ -f "$extracted" ]]; then
+            if mv -- "$extracted" "$file"; then
+                echo "OK Extracted [$type]: $file"
+                ((success += 1))
+            else
+                echo "ERROR Could not install extracted file: $file"
+                ((failed += 1))
+            fi
         else
             echo "ERROR Expected file was not created: $file"
             ((failed += 1))
@@ -70,20 +89,22 @@ while IFS= read -r -d '' archive; do
         ((failed += 1))
     fi
 
+    rm -rf -- "$tmpdir"
+
 done < <(
     find "$DATASET_DIR" -type f \
-        \( -iname '*.pcap.7z' \
-           -o -iname '*.pcapng.7z' \
-           -o -iname '*.cap.7z' \
-           -o -iname '*.csv.7z' \) \
+        \( -iname '*.pcap.7z.001' \
+           -o -iname '*.pcapng.7z.001' \
+           -o -iname '*.cap.7z.001' \
+           -o -iname '*.csv.7z.001' \) \
         -print0
 )
 
 echo
 echo "Summary:"
-echo "Archives found:       $total"
-echo "PCAP archives:        $pcap_count"
-echo "CSV archives:         $csv_count"
-echo "Successfully extracted: $success"
-echo "Skipped:              $skipped"
-echo "Errors:               $failed"
+echo "Multi-volume archives found: $total"
+echo "PCAP archives:               $pcap_count"
+echo "CSV archives:                $csv_count"
+echo "Successfully extracted:      $success"
+echo "Skipped:                     $skipped"
+echo "Errors:                      $failed"

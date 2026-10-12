@@ -3,23 +3,11 @@
 import argparse
 import csv
 import json
-from bisect import bisect_left, bisect_right
-from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from collections import Counter
 from pathlib import Path
 
-SRC_IP = 0
-SRC_PORT = 1
-DST_IP = 2
-DST_PORT = 3
-PROTOCOL = 4
-START_TIME = 28
-END_TIME = 29
-LABEL = 48
-
 def parse_args():
-
-    parser = argparse.ArgumentParser(description="Evaluate Suricata alerts against csv ground truth (test rules).")
+    parser = argparse.ArgumentParser(description="Match Suricata eve.json alerts with ground truth from CSV flows (test rules).")
 
     parser.add_argument(
         "-e",
@@ -48,106 +36,109 @@ def parse_args():
 
     return parser.parse_args()
 
-def normalize(val):
-    return str(val or "").strip().lower()
-
-def normalize_protocol(val):
-    val = normalize(val)
-
-    return {
-        "6": "tcp",
-        "17": "udp",
-        "1": "icmp"
-    }.get(val, val)
-
-def parse_timestamp(val):
-    val = str(val or "").strip()
-    if not val:
+def to_int(val):
+    try:
+        return int(float(str(val).strip()))
+    except (ValueError, TypeError):
         return None
 
-    try:
-        return float(val)
-    except ValueError:
-        pass
-
-    try:
-        dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
-
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-
-        return dt.timestamp()
-    except (ValueError, OverflowError, OSError):
-        return None
 
 def read_ground_truth(paths):
-    records = []
-    labels = Counter()
+    groups = {}
+    total_rows = 0
     invalid = 0
-    ignored = 0
+
+    columns = {
+        "Src IP",
+        "Src Port",
+        "Dst IP",
+        "Dst Port",
+        "Protocol",
+        "Label",
+    }
 
     for path in paths:
-        with open(path, newline="", encoding="utf-8-sig", errors="replace") as file:
+        with open(path, newline="", encoding="cp1252", errors="replace") as file:
             reader = csv.reader(file)
+            header = [name.strip() for name in next(reader, [])]
 
-            for line, row in enumerate(reader, start=1):
-                if len(row) <= LABEL:
-                       invalid += 1
-                       continue
+            index = {}
+            for name in columns:
+                if name not in header:
+                    raise ValueError(f"Missing required CSV column: {name}")
 
-                try:
-                    label = int(float(row[LABEL].strip()))
-                    src_port = int(float(row[SRC_PORT]))
-                    dst_port = int(float(row[DST_PORT]))
-                except (ValueError, TypeError, IndexError):
+                index[name] = header.index(name)
+
+            for row in reader:
+                total_rows += 1
+
+                if len(row) < len(header):
                     invalid += 1
                     continue
 
-                if label not in (0, 1):
-                    ignored += 1
-                    continue
+                src_port = to_int(row[index["Src Port"]])
+                dst_port = to_int(row[index["Dst Port"]])
+                protocol = to_int(row[index["Protocol"]])
+                label = row[index["Label"]].strip().upper()
 
-                src_ip = normalize(row[SRC_IP])
-                dst_ip = normalize(row[DST_IP])
-                proto = normalize(row[PROTOCOL])
-                start = parse_timestamp(row[START_TIME])
-                end = parse_timestamp(row[END_TIME])
-
-                if(not src_ip or not dst_ip or src_port is None or dst_port is None or not proto or start is None or end is None):
+                if (
+                    src_port is None
+                    or dst_port is None
+                    or protocol is None
+                    or not label
+                ):
                     invalid += 1
                     continue
 
-                if end < start :
-                    invalid += 1
-                    continue
+                key = (
+                    row[index["Src IP"]].strip(),
+                    src_port,
+                    row[index["Dst IP"]].strip(),
+                    dst_port,
+                    protocol,
+                )
 
-                records.append({
-                    "record_id": len(records) + 1,
-                    "source_file": str(path),
-                    "source_line": line,
-                    "src_ip": src_ip,
-                    "src_port": src_port,
-                    "dst_ip": dst_ip,
-                    "dst_port": dst_port,
-                    "proto": proto,
-                    "start": start,
-                    "end": end,
-                    "label": label,
-                })
+                if key not in groups:
+                    groups[key] = {
+                        "label": label,
+                        "ambiguous": False,
+                    }
 
-                labels[label] += 1
+                group = groups[key]
 
-    return records, labels, invalid, ignored
+                if label != group["label"]:
+                    group["ambiguous"] = True
 
-def read_eve(path, sid_filter=None):
-    alerts = []
-    malformed = 0
-    missing_timestamp = 0
-    excluded_sid = 0
+    lookup = {}
+    ambiguous = 0
+
+    for key, group in groups.items():
+        if group["ambiguous"]:
+            ambiguous += 1
+            continue
+
+        lookup[key] = {
+            "label": group["label"],
+        }
+
+    return lookup, total_rows, invalid, len(groups), ambiguous
+
+def read_eve(path, lookup, sid_filter=None):
+    alert_5tuples = {}
     signatures = Counter()
-    seen = set()
 
-    with open(path, encoding="utf-8", errors="replace") as file:
+    total_alerts = 0
+    excluded_sid = 0
+    malformed = 0
+
+    direct_matches = 0
+    reverse_matches = 0
+
+    alerts_without_5tuple = 0
+
+    proto_numbers = {"tcp": 6, "udp": 17, "icmp": 1}
+
+    with open(path, "r", encoding="utf-8", errors="replace") as file:
         for line in file:
             try:
                 event = json.loads(line)
@@ -165,222 +156,135 @@ def read_eve(path, sid_filter=None):
                 excluded_sid += 1
                 continue
 
-            timestamp = parse_timestamp(event.get("timestamp"))
+            total_alerts += 1
 
-            if timestamp is None:
-                missing_timestamp += 1
+            signature = alert.get("signature", "UNKNOWN")
+            signatures[signature] += 1
+
+            proto_num = proto_numbers.get(str(event.get("proto", "")).lower())
+            if proto_num is None:
+                alerts_without_5tuple += 1
                 continue
 
-            alert = {
-                    "timestamp": timestamp,
-                    "flow_id": event.get("flow_id"),
-                    "sid": sid,
-                    "signature": str(alert.get("signature", "UNKNOWN")),
-                    "src_ip": normalize(event.get("src_ip")),
-                    "src_port": int(event.get("src_port")),
-                    "dst_ip": normalize(event.get("dest_ip")),
-                    "dst_port": int(event.get("dest_port")),
-                    "proto": normalize_protocol(event.get("proto"))
-            }
+            src_ip = event.get("src_ip")
+            src_port = event.get("src_port")
+            dst_ip = event.get("dest_ip")
+            dst_port = event.get("dest_port")
 
-            key = (sid, alert["proto"], alert["src_ip"], alert["src_port"], alert["dst_ip"], alert["dst_port"], timestamp, alert["signature"],)
-
-            if key in seen:
+            if None in (src_ip, src_port, dst_ip, dst_port):
+                alerts_without_5tuple += 1
                 continue
 
-            seen.add(key)
+            try:
+                src_port = int(src_port)
+                dst_port = int(dst_port)
+            except (ValueError, TypeError):
+                alerts_without_5tuple += 1
+                continue
 
-            alert["alert_id"] = len(alerts) + 1
-            alerts.append(alert)
-            signatures[alert["signature"]] += 1
+            direct_key = (str(src_ip), src_port, str(dst_ip), dst_port, proto_num)
+            reverse_key = (str(dst_ip), dst_port, str(src_ip), src_port, proto_num)
 
+            if direct_key in lookup:
+                key = direct_key
+                direct_matches += 1
+            elif reverse_key in lookup:
+                key = reverse_key
+                reverse_matches += 1
+            else:
+                continue
 
-    stats = {
-        "unique_alerts": len(alerts),
-        "malformed": malformed,
-        "missing_timestamp": missing_timestamp,
-        "excluded_sid": excluded_sid,
+            alert_5tuples.setdefault(key, Counter())[sid] += 1
+
+    return {
+        "alert_5tuples": alert_5tuples,
         "signatures": signatures,
+        "total_alerts": total_alerts,
+        "excluded_sid": excluded_sid,
+        "malformed": malformed,
+        "alerts_without_5tuple": alerts_without_5tuple,
+        "direct_matches": direct_matches,
+        "reverse_matches": reverse_matches,
     }
 
-    return alerts, stats
+def evaluate(lookup, eve_data):
+    alert_5tuples = eve_data["alert_5tuples"]
 
-def flow_matches(record, alert):
-    if record["proto"] != alert["proto"]:
-        return False
-
-    if alert["src_port"] is None or alert["dst_port"] is None:
-        return False
-
-    forward = (
-        record["src_ip"] == alert["src_ip"]
-        and record["dst_ip"] == alert["dst_ip"]
-        and record["src_port"] == alert["src_port"]
-        and record["dst_port"] == alert["dst_port"]
-    )
-
-    reverse = (
-        record["src_ip"] == alert["dst_ip"]
-        and record["dst_ip"] == alert["src_ip"]
-        and record["src_port"] == alert["dst_port"]
-        and record["dst_port"] == alert["src_port"]
-    )
-
-    if not (forward or reverse):
-        return False
-
-    return (record["start"] <= alert["timestamp"] <= record["end"])
-
-
-def evaluate(records, alerts):
     tp = fn = fp = tn = 0
-    matched = set()
-    ambiguous = 0
 
-    index = defaultdict(list)
+    for key, row in lookup.items():
+        label = row["label"]
+        attack = label != "BENIGN"
+        detected = key in alert_5tuples
 
-    for alert in alerts:
-        forward_key = (
-            alert["proto"],
-            alert["src_ip"],
-            alert["src_port"],
-            alert["dst_ip"],
-            alert["dst_port"],
-        )
-
-        reverse_key = (
-            alert["proto"],
-            alert["dst_ip"],
-            alert["dst_port"],
-            alert["src_ip"],
-            alert["src_port"],
-        )
-
-        index[forward_key].append(alert)
-        if reverse_key != forward_key:
-            index[reverse_key].append(alert)
-
-    times_index = {}
-
-    for key, items in index.items():
-        items.sort(key=lambda a: a["timestamp"])
-        times_index[key] = [a["timestamp"] for a in items]
-
-    for record in records:
-        forward_key = (
-            record["proto"],
-            record["src_ip"],
-            record["src_port"],
-            record["dst_ip"],
-            record["dst_port"],
-        )
-
-        reverse_key = (
-            record["proto"],
-            record["dst_ip"],
-            record["dst_port"],
-            record["src_ip"],
-            record["src_port"],
-        )
-
-        candidate_alerts = {}
-
-        for key in (forward_key, reverse_key):
-            items = index.get(key)
-            if not items:
-                continue
-
-            times = times_index[key]
-
-            left = bisect_left(times, record["start"])
-            right = bisect_right(times, record["end"])
-
-            for alert in items[left:right]:
-                candidate_alerts[alert["alert_id"]] = alert
-
-        matches = candidate_alerts.values()
-        detected = bool(candidate_alerts)
-        attack = record["label"] == 1
-
-        if attack and detected:
+        if detected and attack:
             tp += 1
-        elif attack and not detected:
-            fn += 1
-        elif not attack and detected:
+        elif detected and not attack:
             fp += 1
-        else:
+        elif not detected and attack:
+            fn += 1
+        elif not detected and not attack:
             tn += 1
 
-        if len(candidate_alerts) > 1:
-            ambiguous += 1
-
-        matched.update(candidate_alerts.keys())
-
-    unmatched = [
-        alert for alert in alerts
-        if alert["alert_id"] not in matched
-    ]
-
-    return tp, fn, fp, tn, matched, unmatched, ambiguous
+    return tp, fn, fp, tn
 
 def main():
     args = parse_args()
 
     print("Starting Suricata alert evaluation...")
-    print("Using the following configuration:")
     print(f"EVE file : {args.eve}")
-    print(f"CSV file : {args.csv}")
+    print(f"CSV file : {[str(p) for p in args.csv]}")
     print(f"SID      : {'all' if args.sid is None else args.sid}")
-    print()
 
-    print("Reading ground-truth CSV...")
-    records, labels, invalid, ignored = read_ground_truth(args.csv)
-    print(f"Valid records            : {len(records):,}")
-    print(f"Attack records           : {labels[1]:,}")
-    print(f"Benign records           : {labels[0]:,}")
+    print("Reading csv ground truth...")
+
+    lookup, total_rows, invalid, unique, ambiguous_5tuples = read_ground_truth(args.csv)
+    labels = Counter("benign" if row["label"] == "BENIGN" else "attack" for row in lookup.values())
+    print(f"CSV rows                 : {total_rows:,}")
+    print(f"Unique 5-tuples          : {unique:,}")
+    print(f"Valid records            : {len(lookup):,}")
+    print(f"Attack records           : {labels['attack']:,}")
+    print(f"Benign records           : {labels['benign']:,}")
     print(f"Invalid records          : {invalid:,}")
-    print(f"Unsupported labels       : {ignored:,}")
+    print(f"Ambiguous 5-tuples       : {ambiguous_5tuples:,}")
     print()
 
-    print("Reading Suricata EVE alerts...")
-    alerts, stats = read_eve(args.eve, args.sid)
-    print(f"Unique alerts            : {stats['unique_alerts']:,}")
-    print(f"Alerts excluded by SID   : {stats['excluded_sid']:,}")
-    print(f"Malformed JSON lines     : {stats['malformed']:,}")
-    print(f"Alerts without timestamp : {stats['missing_timestamp']:,}")
+    print("Reading Suricata alerts...")
 
-    if stats["signatures"]:
-        print()
+    eve_data = read_eve(args.eve, lookup, args.sid)
+    print(f"Total alerts             : {eve_data['total_alerts']:,}")
+    print(f"Alerts excluded by SID   : {eve_data['excluded_sid']:,}")
+    print(f"Malformed JSON lines     : {eve_data['malformed']:,}")
+    print(f"Alerts without 5-tuple   : {eve_data['alerts_without_5tuple']:,}")
+    print(f"Direct alert matches     : {eve_data['direct_matches']:,}")
+    print(f"Reverse alert matches    : {eve_data['reverse_matches']:,}")
+    print(f"Detected 5-tuples        : {len(eve_data['alert_5tuples']):,}")
+    print()
+
+    if eve_data["signatures"]:
         print("Evaluated signatures:")
-        for signature, count in stats["signatures"].most_common():
-            print(f"  {count:7,}  {signature}")
-    print()
+        for signature, count in eve_data["signatures"].most_common():
+            print(f"  {count:6,}  {signature}")
+        print()
 
-    print("Evaluating records...")
-
-    tp, fn, fp, tn, matched, unmatched, ambiguous = evaluate(records, alerts)
+    print("Computing evaluation...")
+    tp, fn, fp, tn = evaluate(lookup, eve_data)
     total = tp + fn + fp + tn
 
-    print()
     print("Metrics:")
     print(f"TP                       : {tp:,}")
     print(f"FN                       : {fn:,}")
     print(f"FP                       : {fp:,}")
     print(f"TN                       : {tn:,}")
     print(f"Total records            : {total:,}")
-    print(f"Matched alerts           : {len(matched):,}")
-    print(f"Unmatched alerts         : {len(unmatched):,}")
-    print(f"Multiple matching alerts : {ambiguous:,}")
     print()
 
-    print(f"recall     : {tp / (tp + fn):.4%}" if tp + fn else "recall     : n/a")  # Proportion of actual attack flows correctly detected.
-    print(f"precision  : {tp / (tp + fp):.4%}" if tp + fp else "precision  : n/a")  # Proportion of detected attack flows that were actual attacks.
-    print(f"fpr        : {fp / (fp + tn):.4%}" if fp + tn else "fpr        : n/a")  # Proportion of benign flows incorrectly classified as attacks.
-    print(f"tnr        : {tn / (tn + fp):.4%}" if tn + fp else "tnr        : n/a")  # Proportion of benign flows correctly classified as benign.
-    print(f"accuracy   : {(tp + tn) / total:.4%}" if total else "accuracy   : n/a")  # Proportion of all flows correctly classified.
-
-    print(f"f1         : {2 * tp / (2 * tp + fp + fn):.4%}" if 2 * tp + fp + fn else "f1         : n/a")  # Harmonic mean of precision and recall.
-
+    print(f"Recall     : {tp / (tp + fn):.4%}" if tp + fn else "Recall     : N/A")
+    print(f"Precision  : {tp / (tp + fp):.4%}" if tp + fp else "Precision  : N/A")
+    print(f"FPR        : {fp / (fp + tn):.4%}" if fp + tn else "FPR        : N/A")
+    print(f"TNR        : {tn / (tn + fp):.4%}" if tn + fp else "TNR        : N/A")
+    print(f"Accuracy   : {(tp + tn) / total:.4%}" if total else "Accuracy  : N/A")
+    print(f"F1         : {2 * tp / (2 * tp + fp + fn):.4%}" if 2 * tp + fp + fn else "F1         : N/A")
     print()
 
 if __name__ == "__main__":
