@@ -223,3 +223,23 @@ alert udp any any -> $HOME_NET any (msg:"UDP flood (extended flood)"; detection_
 alert udp any any -> $HOME_NET any (msg:"UDP flood (empty payload)"; dsize:0; detection_filter: track by_dst, count 20, seconds 1; classtype:attempted-dos; sid:1006010;)
 
 alert icmp $HOME_NET any -> any any (msg:"UDP flood victim sending many ICMP unreachables"; itype:3; detection_filter: track by_src, count 100, seconds 1; classtype:attempted-dos; sid:1006011;)
+
+# HTTP DDoS
+
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (GET burst)"; flow:established, to_server; http.method; content:"GET"; detection_filter: track by_dst, count 500, seconds 1; sid:1007001;)
+
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (POST burst"; flow:established, to_server; http.method; content:"POST"; detection_filter: track by_dst, count 500, seconds 1; sid:1007002;)
+
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (GET flood)"; flow:established, to_server; http.method; content:"GET"; detection_filter: track by_dst, count 1000, seconds 10; sid:1007003;)
+
+alert http any any -> any any (msg:"Potential HTTP DDoS attack detected (POST flood)"; flow:established, to_server; http.method; content:"POST"; detection_filter: track by_dst, count 1000, seconds 10; sid:1007004;)
+
+# OS Fingerprinting
+
+alert tcp any any -> any 65535 (msg:"Possible OS Fingerprinting attack"; flow:to_server; flags:S; classtype:attempted_recon; sid:1008001;)
+
+# MITM
+
+alert mdns any any -> any any (msg:"Possible MDNS Spoofing"; detection_filter: track by_src, count 5, seconds 3; classtype:mitm; sid:1009001;) #Many false positives
+
+#Suricata does not support rules for ARP
