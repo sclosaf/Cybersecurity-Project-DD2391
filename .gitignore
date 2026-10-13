@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 suricata/
 datasets/
+setup/
 
 *.csv
 *.pcap

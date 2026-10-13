@@ -1,4 +1,8 @@
-# Evaluating Signature-Based Network Intrusion Detection with Suricata
+# Suricata-Based Network Intrusion Detection and Evaluation
+
+Note: to fix 1/2/3 because they contain outdated topics
+
+## 0. Individual contributions
 
 ## 1. Introduction
 Network Intrusion Detection Systems (NIDS) are designed to analyze and identify malicious traffic in order to identify potentially malicious activity by detecting and inspecting patterns associated with known attacks. This project aims to investigate the effectiveness and the limitations of a signature-based approach, employing Suricata, an open-source network analysis and threat detection software. Our analysis focuses toward HTTP traffic and a selected set of malicious network behaviors.
@@ -46,7 +50,48 @@ Since the experiments are conducted in a controlled environment, the ground trut
 ### 3.4 Out-of-Scope Scenarios
 The scope of the project is limited to a network-based, signature-based intrusion detection using Suricata. Therefore, the following detections are not addressed or performed in any way: host-based intrusion detection and malware analysis.
 
-TO CONTINUE
+
+## 4. Experimental Environment
+### 4.1 Environment
+### 4.2 Dataset
+### 4.3 Attack Scenarios
+#### 4.3.1 SQL Injections
+#### 4.3.2 Brute Force
+#### 4.3.3 Vulnerability Scanner
+#### 4.3.4 Web Shell
+#### 4.3.5 Path Traversal
+#### 4.3.6 XXS
+#### 4.3.7 Port Scanning
+#### 4.3.8 DoS
+#### 4.3.9 Reconnaissance
+#### 4.3.10 OS Fingerprinting
+#### 4.3.11 MITM
+### 4.4 Benign Traffic
+### 4.5 Ground Truth
+
+## 5. Suricata Rules
+### 5.1 Rule Design Principles
+### 5.2 Initial Rules
+### 5.3 Rule Thresholds
+
+## 6. Evaluation Methodology
+### 6.1 Experimental Procedure
+### 6.2 Confusion Matrix
+### 6.3 Evaluation Metrics
+
+## 7. Results
+### 7.1 Baseline Rules
+### 7.2 Analysis
+
+## 8. Discussion
+### 8.1 Effectiveness of Simple Signatures
+### 8.2 Detection vs. False Positives
+### 8.3 Limitations
+Note:
+- Suricata cannot write rules for ARP traffic, so ARP spoofing cannot be detected directly.
+- Considered but not used: [UNSW-NB15](https://research.unsw.edu.au/projects/unsw-nb15-dataset) (too big and out of scope)
+
+## 9. Conclusion
 
 ## References
 [1] https://www.ibm.com/think/topics/intrusion-detection-system
