@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# Note: This file was AI-generated and reviewed to ensure proper use.
+
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
