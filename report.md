@@ -55,9 +55,55 @@ The scope of the project is limited to a network-based, signature-based intrusio
 #### 4.3.6 XXS
 #### 4.3.7 Port Scanning
 #### 4.3.8 DoS
+A HTML DDoS (HyperText Markup Language Distributed Denial of Service)
+attack is an attack which aims to overwhelm a system by subjecting it to
+a large number of HTML requests, thus occupying too much computational
+load for the system to respond to legitimate traffic. These attacks are
+very obvious from an intrusion detection perspective, as they consist of
+more traffic than the system would ever legitimately handle. The rules
+written for these attacks cover the two most common types of HTML
+requests, the GET and POST requests, as well as two different variations
+of DDoS attacks, one where the system is subjected to an extreme burst
+of requests over a short amount of time, and one where the system is
+subjected to a larger flood of requests over a longer amount of time. Of
+note is also the difference between a DoS (Denial of Service) attack and
+a DDoS attack. A DDoS attack specifically launches attacks from multiple
+different sources in an effort to disguise the attack as merely an
+abnormal amount of possibly legitimate traffic, which means that the
+rules have to track the request frequency by the destination of the
+requests instead of the source.
+
 #### 4.3.9 Reconnaissance
 #### 4.3.10 OS Fingerprinting
+An OS Fingerprinting attack is an attack which aims to discover the OS
+(Operating System) of the target. This information can then be used in
+order to exploit known vulnerabilities in those operating systems. OS
+Fingerprinting can be difficult to defend against as it can take many
+different forms. In the training dataset OS Fingerprinting mainly takes
+the form of ICMP analysis and TCP SYN requests to an invalid port. ICMP
+analysis is difficult to detect, as it simply observes the response to
+legitimate ICMP traffic, so the rules instead track TCP requests to a
+port which is not used by legitimate traffic. Other forms of OS
+Fingerprinting can use other forms of scanning, like TCP Null, FIN or
+XMAS scans, in order to gather data.
+
 #### 4.3.11 MITM
+A MITM (Man In The Middle) attack is an attack which aims to hijack a
+connection in order to allow the attacker to pretend to be another part
+of the network. In the training dataset this consists of two different
+types of spoofing, DNS (Domain Name Service) and ARP (Address Resolution
+Protocol) spoofing. As ARP is a layer 2 protocol, Suricata does not
+support rules that interact with it, so ARP spoofing will not be covered
+by this project. DNS spoofing is an attack where the attacker attempts
+to insert a fraudulent domain-to-IP address translation into a DNS
+cache, which will redirect all traffic that was supposed to go to that
+domain to the attacker. In the dataset this involves repeated
+retransmissions of DNS requests with transmission ID 0 from the
+attacker, so that the fake translation is more likely to be accepted.
+Unfortunately, Suricata supports neither checking for retransmissions
+nor the DNS transmission ID, so the rules simply check for repeated DNS
+requests during a short time, which is likely to cause false positives.
+
 ### 4.4 Benign Traffic
 ### 4.5 Ground Truth
 
@@ -72,16 +118,995 @@ The scope of the project is limited to a network-based, signature-based intrusio
 ### 6.3 Evaluation Metrics
 
 ## 7. Results
-### 7.1 Baseline Rules
-### 7.2 Analysis
+
+### 7.1 Training (Attacks)
+
+#### 7.1.1 Backdoor Attack
+
+Metrics:
+
+
+ |    Type    |  Number|
+ | -----------| ---------|
+ |     TP     |     0|
+ |     FN     |  24,862|
+ |     FP     |     0|
+ |     TN     |     0|
+ |    Total   |  24,862|
+ |            | |
+ |   Recall   |  0.0000%|
+ |  Precision |    N/A|
+ |     FPR    |    N/A|
+ |     TNR    |    N/A|
+ |  Accuracy  |  0.0000%|
+ |     F1     |  0.0000%|
+
+
+
+#### 7.1.2 HTTP DDoS
+
+Evaluated signatures:
+
+  | Number  |                      Type|
+  |-------- |-------------------------------------------------|
+  | 16,645  |         TCP SYN flood (extended flood)|
+  | 2,870   |           TCP SYN flood (burst flood)|
+  |  895    | Potential HTTP DDoS attack detected (GET burst)|
+  |  441    | Potential HTTP DDoS attack detected (GET flood)|
+  |   45    |                 DoS: SYN flood|
+  |   23    |                 Recon: SYN scan|
+
+
+Metrics:
+
+  |   Type    |   Number|
+  |-----------| -----------|
+  |    TP     |   143,471|
+  |    FN     |   85,551|
+  |    FP     |      0|
+  |    TN     |      0|
+  |   Total   |   229,022|
+  |           | |
+  |  Recall   |  62.6451%|
+  | Precision |  100.0000%|
+  |    FPR    |     N/A|
+  |    TNR    |     N/A|
+  | Accuracy  |  62.6451%|
+  |    F1     |  77.0329%|
+
+#### 7.1.3 ICMP DDoS:
+
+Evaluated signatures:
+
+  |  Number   |                    Type|
+  |-----------| -------------------------------------------|
+  | 2,403,102 |  ICMP flood echo requests (empty payload)|
+  | 2,201,181 |  ICMP flood echo requests (extended flood)|
+  | 2,185,117 |   ICMP flood echo requests (burst flood)|
+  |    81     |            DoS: ICMP echo flood|
+
+Metrics:
+
+  |   Type    |   Number|
+  |-----------| -----------|
+  |    TP     |  2,913,922|
+  |    FN     |     432|
+  |    FP     |      0|
+  |    TN     |      0|
+  |   Total   |  2,914,354|
+  |           | |
+  |  Recall   |  99.9852%|
+  | Precision |  100.0000%|
+  |    FPR    |     N/A|
+  |    TNR    |     N/A|
+  | Accuracy  |  99.9852%|
+  |    F1     |  99.9926%|
+
+#### 7.1.4 TCP SYN DDoS:
+
+Evaluated signatures:
+
+ |   Number   |                      Type|
+ | -----------| -----------------------------------------------|
+ |  1,163,807 |           TCP SYN flood (no options)|
+ |   908,098  |           TCP SYN flood (burst flood)|
+ |   881,320  |         TCP SYN flood (extended flood)|
+ |   792,514  |  TCP SYN flood victim answering with many RSTs|
+ |     118    |                 DoS: SYN flood|
+
+Metrics:
+
+|     Type     |  Number|
+|  ----------- |-----------|
+|      TP      | 2,019,071|
+|      FN      |   1,049|
+|      FP      |     0|
+|      TN      |     0|
+|     Total    | 2,020,120|
+|             | |
+|    Recall   |  99.9481%|
+|   Precision |  100.0000%|
+|     FPR     |    N/A|
+|      TNR    |     N/A|
+|   Accuracy  |  99.9481%|
+|      F1     |  99.9740%|
+
+
+#### 7.1.5 UDP DDoS:
+
+Evaluated signatures:
+
+ |   Number    |                      Type|
+ | ----------- |-------------------------------------------------|
+ |  2,890,950  |            UDP flood (empty payload)|
+ |  2,818,556  |           UDP flood (extended flood)|
+ |  2,701,600  |             UDP flood (burst flood)|
+ |   284,147   | UDP flood victim sending many ICMP unreachables|
+ |     82      |                 DoS: UDP flood|
+ 
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |  3,214,994|
+|      FN     |     738|
+|      FP     |      0|
+|      TN     |      0|
+|     Total   |  3,215,732|
+|             | |
+|    Recall   |  99.9771%|
+|   Precision |  100.0000%|
+|      FPR    |     N/A|
+|      TNR    |     N/A|
+|   Accuracy  |  99.9771%|
+|      F1     |  99.9885%|
+
+#### 7.1.6 MITM:
+
+Evaluated signatures:
+
+
+ |  Number |           Type|
+ | --------| ------------------------|
+ |    26   |  Possible MDNS Spoofing|
+
+
+Metrics:
+
+ |    Type    |  Number|
+ | -----------| --------|
+ |     TP     |    0|
+ |     FN     |    0|
+ |     FP     |    0|
+ |     TN     |    0|
+ |    Total   |    0|
+ |            | |
+ |   Recall   |   N/A|
+ |  Precision |   N/A|
+ |     FPR    |   N/A|
+ |     TNR    |   N/A|
+ |  Accuracy  |   N/A|
+ |     F1     |   N/A|
+
+
+#### 7.1.7 OS Fingerprinting:
+
+Evaluated signatures:
+
+|   Number  |   Type|
+|  ---------| --------------------------------------------|
+|   135     |  Possible OS Fingerprinting attack|
+|   54      | Port scan: many closed port replies|
+|   35      |      TCP SYN flood (no options)|
+|    3 |   Recon: many RST/ACK replies (closed ports)|
+
+
+Metrics:
+
+ |    Type    |   Number|
+ | -----------| -----------|
+ |     TP     |     270|
+ |     FN     |     731|
+ |     FP     |      0|
+ |     TN     |      0|
+ |    Total   |    1,001|
+ |            | |
+ |   Recall   |  26.9730%|
+ |  Precision |  100.0000%|
+ |     FPR    |     N/A|
+ |     TNR    |     N/A|
+ |  Accuracy  |  26.9730%|
+ |     F1     |  42.4862%|
+
+
+#### 7.1.8 Password attacks:
+
+Evaluated signatures:
+
+|   Number   |     Type|
+|  -------- |-----------------|
+|     11    | Recon: SYN scan|
+
+
+Metrics:
+
+ |    Type    |   Number|
+ | -----------| -----------|
+ |     TP     |     877|
+ |     FN     |  1,052,508|
+ |     FP     |      0|
+ |     TN     |      0|
+ |    Total   |  1,053,385|
+ |            | |
+ |   Recall   |   0.0833%|
+ |  Precision |  100.0000%|
+ |     FPR    |     N/A|
+ |     TNR    |     N/A|
+ |  Accuracy  |   0.0833%|
+ |     F1     |   0.1664%|
+
+#### 7.1.9 Port Scan:
+
+Evaluated signatures:
+
+  | Number |                      Type|
+  |-------- |-----------------------------------------------|
+  | 9,987   |           Port scan: SYN window 512|
+  | 7,612   |      Port scan: many closed port replies|
+  | 3,681   |          TCP SYN flood (no options)|
+  | 1,645   | TCP SYN flood victim answering with many RSTs|
+  |  461    |          TCP SYN flood (burst flood)|
+  |   84    |            Possible MDNS Spoofing|
+  |   30    |  Recon: many RST/ACK replies (closed ports)|
+  |   15    |        Port scan: UDP port unreachable|
+  |   3     |                Recon: SYN scan|
+  |   1     |                DoS: SYN flood|
+  |   1     |      Recon: ICMP port unreachable burst|
+
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |   19,974|
+|      FN     |    2,590|
+|      FP     |      0|
+|      TN     |      0|
+|     Total   |   22,564|
+|             | |
+|    Recall   |  88.5215%|
+|   Precision |  100.0000%|
+|      FPR    |     N/A|
+|      TNR    |     N/A|
+|   Accuracy  |  88.5215%|
+|      F1     |  93.9113%|
+
+#### 7.1.10 Ransomware attacks:
+
+Metrics:
+
+|     Type    |  Number|
+|  -----------| ---------|
+|      TP     |     0|
+|      FN     |  10,925|
+|      FP     |     0|
+|      TN     |     0|
+|     Total   |  10,925|
+|             | |
+|    Recall   |  0.0000%|
+|   Precision |    N/A|
+|      FPR    |    N/A|
+|      TNR    |    N/A|
+|   Accuracy  |  0.0000%|
+|      F1     |  0.0000%|
+
+
+#### 7.1.11 SQL Injection:
+
+Evaluated signatures:
+
+|   Number  |             Type|
+|  -------- |-------------------------------|
+|    842    |    SQLi: time-based in URI|
+|    480    |  SQLi: stacked query in URI|
+|    300    | SQLi: OR/AND tautology in URI|
+|     60    |   SQLi: UNION SELECT in URI|
+|     14    v        Recon: SYN scan|
+
+Metrics:
+
+ |    Type    |   Number|
+ | -----------| -----------|
+ |     TP     |   16,994|
+ |     FN     |   34,209|
+ |     FP     |      0|
+ |     TN     |      0|
+ |    Total   |   51,203|
+ |            | |
+ |   Recall   |  33.1895%|
+ |  Precision |  100.0000%|
+ |     FPR    |     N/A|
+ |     TNR    |     N/A|
+ |  Accuracy  |  33.1895%|
+ |     F1     |  49.8380%|
+
+
+#### 7.1.12 Uploading attack:
+
+Evaluated signatures:
+
+ |  Number  |                       Type|
+ | -------- |---------------------------------------------------|
+ |  5,514   |        Port scan: many closed port replies|
+ |  1,904   | Web shell: PHP file requested from uploads folder|
+ |  1,904   |     Web shell: curl requesting PHP in uploads|
+ |   771    |   TCP SYN flood victim answering with many RSTs|
+ |    18    |                  Recon: SYN scan|
+ |    7     |    Recon: many RST/ACK replies (closed ports)|
+ |    4     |                  DoS: SYN flood|
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |   34,383|
+|      FN     |    3,251|
+|      FP     |      0|
+|      TN     |      0|
+|     Total   |   37,634|
+|             | |
+|    Recall   |  91.3615%|
+|   Precision |  100.0000%|
+|      FPR    |     N/A|
+|      TNR    |     N/A|
+|   Accuracy  |  91.3615%|
+|      F1     |  95.4858%|
+
+
+#### 7.1.13 Vulnerability Scanner:
+
+Evaluated signatures:
+
+|   Number   |                         Type|
+|  --------- |-------------------------------------------------------|
+|   111,106  |             Vulnerability scanner: Nikto|
+|   104,994  |    Vulnerability scanner: excessive 404 responses|
+|   72,599   |    Potential HTTP DDoS attack detected (GET burst)|
+|   62,263   |    Potential HTTP DDoS attack detected (GET flood)|
+|    5,671   |   Vulnerability scanner: random prefix enumeration|
+|    4,326   |                   XSS: alert() call|
+|    4,309   |   Vulnerability scanner: system file access attempt|
+|    3,793   |   Vulnerability scanner: file extension enumeration|
+|    3,738   |                XSS: script tag in URI|
+|    3,724   |                    XSS: script tag|
+|    2,063   |     Vulnerability scanner: Path traversal attempt|
+|     930    |           Vulnerability scanner: Shellshock|
+|     238    |                 XSS: javascript: URI|
+|     210    |          Web shell: command parameter in URI|
+|     57     | Vulnerability scanner: Path traversal attempt encoded|
+|     56     |            SQLi: comment + keyword in URI|
+|     56     |                     XSS: img tag|
+|     28     |               SQLi: UNION SELECT in URI|
+|     14     |              SQLi: stacked query in URI|
+|     14     |            SQLi: information_schema in URI|
+|     14     |                 XSS: JS event onload|
+|      2     |                    Recon: SYN scan|
+|      1     |                    DoS: SYN flood|
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |   145,462|
+|      FN     |     407|
+|      FP     |      0|
+|      TN     |      0|
+|     Total   |   145,869|
+|             | |
+|    Recall   |  99.7210%|
+|   Precision |  100.0000%|
+|      FPR    |     N/A|
+|      TNR    |     N/A|
+|   Accuracy  |  99.7210%|
+|      F1     |  99.8603%|
+
+
+#### 7.1.14 XSS attack:
+
+Metrics:
+
+|     Type    |  Number|
+|  -----------| ---------|
+|      TP     |     0|
+|      FN     |  15,915|
+|      FP     |     0|
+|      TN     |     0|
+|     Total   |  15,915|
+|             | |
+|    Recall   |  0.0000%|
+|   Precision |    N/A|
+|      FPR    |    N/A|
+|      TNR    |    N/A|
+|   Accuracy  |  0.0000%|
+|      F1     |  0.0000%|
+
+
+### 7.2 Training (Benign)
+
+#### 7.2.1 Distance: 
+
+Evaluated signatures:
+
+|   Number  |      Type|
+|  -------- |-----------------|
+|    159    | Recon: SYN scan|
+|     1     | DoS: SYN flood|
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |      0|
+|      FN     |      0|
+|      FP     |   11,457|
+|      TN     |  1,132,083|
+|     Total   |  1,143,540|
+|             | |
+|    Recall   |     N/A|
+|   Precision |   0.0000%|
+|      FPR    |   1.0019%|
+|      TNR    |  98.9981%|
+|   Accuracy  |  98.9981%|
+|      F1     |   0.0000%|
+
+#### 7.2.2 Flame Sensor: 
+
+Evaluated signatures:
+
+|   Number  |      Type|
+|  -------- |-----------------|
+|    142    | Recon: SYN scan|
+|     5     | DoS: SYN flood|
+
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |      0|
+|      FN     |      0|
+|      FP     |    9,601|
+|      TN     |  1,060,595|
+|     Total   |  1,070,196|
+|              ||
+|    Recall    |    N/A|
+|   Precision  |  0.0000%|
+|      FPR     |  0.8971%|
+|      TNR     | 99.1029%|
+|   Accuracy   | 99.1029%|
+|      F1       | 0.0000%|
+
+
+#### 7.2.3 Heart Rate: 
+
+Evaluated signatures:
+
+|   Number  |      Type|
+|  -------- |-----------------|
+|     1     | Recon: SYN scan|
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| ----------|
+|      TP     |     0|
+|      FN     |     0|
+|      FP     |     16|
+|      TN     |  165,303|
+|     Total   |  165,319|
+|             | |
+|    Recall   |    N/A|
+|   Precision |  0.0000%|
+|      FPR    |  0.0097%|
+|      TNR    |  99.9903%|
+|   Accuracy  |  99.9903%v
+|      F1     |  0.0000%|
+
+
+#### 7.2.4 IR Reciever: 
+
+Evaluated signatures:
+
+|   Number  |      Type|
+|  -------- |-----------------|
+|    180    | Recon: SYN scan|
+|     2     | DoS: SYN flood|
+
+
+Metrics:
+
+|     Type     |  Number|
+|  ----------- |-----------|
+|      TP      |     0|
+|      FN      |     0|
+|      FP      |  14,615|
+|      TN      | 1,293,163|
+|     Total    | 1,307,778|
+|             | |
+|    Recall   |     N/A|
+|   Precision |   0.0000%|
+|      FPR    |   1.1175%|
+|      TNR    |  98.8825%|
+|   Accuracy  |  98.8825%|
+|      F1     |   0.0000%|
+
+
+#### 7.2.5 Modbus: 
+
+Evaluated signatures:
+
+
+|   Number  |          Type|
+|  -------- |------------------------|
+|     2     | Possible MDNS Spoofing|
+
+Metrics:
+
+|     Type     |  Number|
+|  ----------- |-----------|
+|      TP      |     0|
+|      FN      |     0|
+|      FP      |     0|
+|      TN      |  155,543|
+|     Total    |  155,543|
+|             | |
+|    Recall   |     N/A|
+|   Precision |     N/A|
+|      FPR    |   0.0000%|
+|      TNR    |  100.0000%|
+|   Accuracy  |  100.0000%|
+|      F1     |     N/A|
+
+#### 7.2.6 ph Value: 
+
+Evaluated signatures:
+
+|   Number  |      Type|
+|  -------- |-----------------|
+|    173    | Recon: SYN scan|
+
+
+Metrics:
+
+|     Type     |  Number|
+|  ----------- |----------|
+|      TP      |    0|
+|      FN      |    0|
+|      FP      |  8,262|
+|      TN      | 738,646|
+|     Total    | 746,908|
+|              ||
+|    Recall    |   N/A|
+|   Precision  | 0.0000%|
+|      FPR     | 1.1062%|
+|      TNR     | 98.8938%|
+|   Accuracy   | 98.8938%|
+|      F1      | 0.0000%|
+
+
+#### 7.2.7 Soil Moisture: 
+
+Evaluated signatures:
+
+|   Number  |      Type|
+|  -------- |-----------------|
+|    269    | Recon: SYN scan|
+
+
+Metrics:
+
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |      0|
+|      FN     |      0|
+|      FP     |   19,942|
+|      TN     |  1,172,835|
+|     Total   |  1,192,777|
+|             | |
+|    Recall   |     N/A|
+|   Precision |   0.0000%|
+|      FPR    |   1.6719%|
+|      TNR    |  98.3281%|
+|   Accuracy  |  98.3281%|
+|      F1     |   0.0000%|
+
+#### 7.2.8 Sound Sensor: 
+
+Evaluated signatures:
+
+
+|   Number |       Type|
+|  --------| -----------------|
+|    191   |  Recon: SYN scan|
+|     20   |  DoS: SYN flood|
+
+
+Metrics:
+
+
+  |   Type     |  Number|
+  |----------- |-----------|
+  |    TP      |     0|
+  |    FN      |     0|
+  |    FP      |  19,567|
+  |    TN      | 1,493,316|
+  |   Total    | 1,512,883|
+  |            ||
+  |  Recall    |    N/A|
+  | Precision  |  0.0000%|
+  |    FPR     |  1.2934%|
+  |    TNR     | 98.7066%|
+  | Accuracy   | 98.7066%|
+  |    F1      |  0.0000%|
+
+#### 7.2.9 Temperature and Humidity: 
+
+Evaluated signatures:
+
+
+|   Number  |                Type|
+|  -------- |------------------------------------|
+|    152    |       Possible MDNS Spoofing|
+|     3     |  Port scan: UDP port unreachable|
+|     1     | Recon: ICMP port unreachable burst|
+|     1     |          Recon: SYN scan|
+
+Metrics:
+
+
+|     Type     |  Number|
+|  ----------- |-----------|
+|      TP      |     0|
+|      FN      |     0|
+|      FP      |   7,812|
+|      TN      | 1,607,910|
+|     Total    | 1,615,722|
+|             | |
+|    Recall   |     N/A|
+|   Precision  |  0.0000%|
+|      FPR     |  0.4835%|
+|      TNR     | 99.5165%|
+|   Accuracy   | 99.5165%|
+|      F1      |  0.0000%|
+
+#### 7.2.10 Water Levels: 
+
+Evaluated signatures:
+
+|   Number |       Type|
+|  --------| -----------------|
+|    309   |  Recon: SYN scan|
+|     16   |  DoS: SYN flood|
+
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| -----------|
+|      TP     |      0|
+|      FN     |      0|
+|      FP     |   46,203|
+|      TN     |  2,249,085|
+|     Total   |  2,249,085|
+|             | |
+|    Recall   |     N/A|
+|   Precision |   0.0000%|
+|      FPR    |   2.0130%|
+|      TNR    |  97.9870%|
+|   Accuracy  |  97.9870%|
+|      F1     |   0.0000%|
+
+### 7.3 Test
+
+#### 7.3.1 Monday: 
+
+Evaluated signatures:
+
+|   Number |                       Type|
+|  --------| ------------------------------------------------|
+|   8,775  |              Possible MDNS Spoofing|
+|    557   |       Port scan: many closed port replies|
+|    309   |                 Recon: SYN scan|
+|    193   |  TCP SYN flood victim answering with many RSTs|
+|     94   |         Port scan: UDP port unreachable|
+|     47   |    Recon: many RST/ACK replies (closed ports)|
+|     28   |  Vulnerability scanner: excessive 404 responses|
+|     11   |        Recon: ICMP port unreachable burst|
+|     4    |               XSS: JS event onload|
+|     3    |            XSS: script tag (encoded)|
+|     3    |                  DoS: UDP flood|
+|     2    |            UDP flood (empty payload)|
+|     1    |                Recon: ICMP sweep|
+|     1    |          SQLi: OR/AND tautology in body|
+
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| ----------|
+|      TP     |     0|
+|      FN     |     0|
+|      FP     |    894|
+|      TN     |  248,244|
+|     Total   |  249,138|
+|             | |
+|    Recall   |    N/A|
+|   Precision |  0.0000%|
+|      FPR    |  0.3588%|
+|      TNR    |  99.6412%|
+|   Accuracy  |  99.6412%|
+|      F1     |  0.0000%|
+
+
+#### 7.3.2 Tuesday: 
+
+Evaluated signatures:
+
+|   Number  |                       Type|
+|  -------- |--------------------------------------------------|
+|   7,046   |              Possible MDNS Spoofing|
+|   2,208   |       Port scan: many closed port replies|
+|    269    |                 Recon: SYN scan|
+|     82    | Vulnerability scanner: random prefix enumeration|
+|     79    |  TCP SYN flood victim answering with many RSTs|
+|     78    |    Recon: many RST/ACK replies (closed ports)|
+|     52    |         Port scan: UDP port unreachable|
+|     14    |       Brute force: repeated 403 responses|
+|     8     |               XSS: javascript: URI|
+|     5     |        Recon: ICMP port unreachable burst|
+|     1     |                  DoS: UDP flood|
+|     1     |                  DoS: SYN flood|
+|     1     |          SQLi: comment + keyword in URI|
+|     1     |          SQLi: OR/AND tautology in body|
+
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| ----------|
+|      TP     |     0|
+|      FN     |   6,934|
+|      FP     |   1,840|
+|      TN     |  202,923|
+|     Total   |  211,697|
+|             | |
+|    Recall   |  0.0000%|
+|   Precision |  0.0000%|
+|      FPR    |  0.8986%|
+|      TNR    |  99.1014%|
+|   Accuracy  |  95.8554%|
+|      F1     |  0.0000%|
+
+
+#### 7.3.3 Wednesday: 
+
+Evaluated signatures:
+
+|   Number  |                        Type|
+|  ---------| --------------------------------------------------|
+|   107,907 |        Port scan: many closed port replies|
+|   80,575  |  Potential HTTP DDoS attack detected (GET flood)|
+|   77,619  |            TCP SYN flood (burst flood)|
+|   76,757  |   TCP SYN flood victim answering with many RSTs|
+|   50,629  |           TCP SYN flood (extended flood)|
+|   45,924  |  Potential HTTP DDoS attack detected (GET burst)|
+|    5,356  |               Possible MDNS Spoofing|
+|     416   |                  Recon: SYN scan|
+|     89    |                   DoS: SYN flood|
+|     86    |     Recon: many RST/ACK replies (closed ports)|
+|     36    |          Port scan: UDP port unreachable|
+|     30    |  Vulnerability scanner: random prefix enumeration|
+|     19    |                XSS: JS event onload|
+|      4    |         Recon: ICMP port unreachable burst|
+|      3    |           SQLi: comment + keyword in URI|
+|      2    |                XSS: javascript: URI|
+|      2    |           SQLi: OR/AND tautology in body|
+|      2    |             XSS: script tag (encoded)|
+|      1    |                   DoS: UDP flood|
+|      1    |          SQLi: comment + keyword in body|
+
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| ----------|
+|      TP     |   2,951|
+|      FN     |     2|
+|      FP     |   6,446|
+|      TN     |  206,222|
+|     Total   |  215,621|
+|             | |
+|    Recall   |  99.9323%|
+|   Precision |  31.4036%|
+|      FPR    |  3.0310%|
+|      TNR    |  96.9690%|
+|   Accuracy  |  97.0096%|
+|      F1     |  47.7895%|
+
+
+#### 7.3.4 Thursday: 
+
+Evaluated signatures:
+
+|   Number  |                        Type|
+|  ---------| --------------------------------------------------|
+|   128,879 |          Port scan: Nmap SYN window 1024|
+|   68,302  |        Port scan: many closed port replies|
+|   58,338  |            TCP SYN flood (burst flood)|
+|   55,655  |   TCP SYN flood victim answering with many RSTs|
+|   16,694  |           TCP SYN flood (extended flood)|
+|    4,188  |               Possible MDNS Spoofing|
+|     891   |               XSS: script tag in URI|
+|     888   |                  XSS: script tag|
+|     346   |                  Recon: NULL scan|
+|     308   |                  Recon: SYN scan|
+|     284   |                  Recon: Xmas scan|
+|     96    |            Vulnerability scanner: Nmap|
+ |    94    |             Port scan: SYN window 512|
+ |    80    |     Recon: many RST/ACK replies (closed ports)|
+ |    73    |              UDP flood (burst flood)|
+ |    70    |                   DoS: SYN flood|
+ |    61    |  Vulnerability scanner: random prefix enumeration|
+ |    32    |          Port scan: UDP port unreachable|
+ |    10    |                XSS: javascript: URI|
+ |     8    |                 Recon: ICMP sweep|
+ |     3    |         Recon: ICMP port unreachable burst|
+ |     3    |          SQLi: information_schema in URI|
+ |     3    |         SQLi: information_schema in header|
+ |     2    |                   DoS: UDP flood|
+ |     1    |             XSS: script tag (encoded)|
+ |     1    |           SQLi: comment + keyword in URI|
+
+Metrics:
+
+|     Type    |   Number|
+|  -----------| ----------|
+|      TP     |   63,742|
+|      FN     |   2,975|
+|      FP     |   3,297|
+|      TN     |  188,597|
+|     Total   |  258,611|
+|             | |
+|    Recall   |  95.5409%|
+|   Precision |  95.0820%|
+|      FPR    |  1.7181%|
+|      TNR    |  98.2819%|
+|   Accuracy  |  97.5747%|
+|      F1     |  95.3109%|
+
+
+#### 7.3.5 Friday: 
+
+Evaluated signatures:
+
+|   Number  |                        Type|
+|  ---------| --------------------------------------------------|
+|   255,532 |        Port scan: many closed port replies|
+|   212,101 |   TCP SYN flood victim answering with many RSTs|
+|   98,558  |           TCP SYN flood (extended flood)|
+|   78,932  |          Port scan: Nmap SYN window 1024|
+|   75,074  |            TCP SYN flood (burst flood)|
+|    5,871  |               Possible MDNS Spoofing|
+|     391   |                  Recon: SYN scan|
+|     225   |                   DoS: SYN flood|
+|     120   |             UDP flood (empty payload)|
+|     115   |         Port scan: UDP port unreachable|
+|     114   |     Recon: many RST/ACK replies (closed ports)|
+|     69    |  Potential HTTP DDoS attack detected (GET flood)|
+|     61    |  Vulnerability scanner: random prefix enumeration|
+|      7    |          SQLi: comment + keyword in body|
+|      6    |         Recon: ICMP port unreachable burst|
+|      4    |                XSS: javascript: URI|
+|     3     |                  DoS: UDP flood|
+ |     3    |           SQLi: OR/AND tautology in body|
+
+Metrics:
+
+|     Type     |  Number|
+|  ----------- |----------|
+|      TP      | 202,905|
+|      FN      |  2,520|
+|      FP      |  2,683|
+|      TN      | 188,097|
+|     Total    | 396,205|
+|             | |
+|    Recall   |  98.7733%|
+|   Precision |  98.6950%|
+|      FPR    |  1.4063%|
+|      TNR    |  98.5937%|
+|   Accuracy  |  98.6868%|
+|      F1     |  98.7341%|
+
+### 7.4 Analysis
+
+The results from the testing data show greatly varied effectiveness from
+day to day. This is likely to be because the attacks represented in that
+data varied from day to day, and so the signatures used were effective
+against the attacks that they were designed to detect, but less so when
+faced with attacks that they were not.
+
+The results from the malicious training data show that none of the rules
+were perfectly accurate when detecting the attacks they were designed to
+find, which is to be expected. Not every part of a malicious attack can
+be detected, as some parts of them will be identical to legitimate
+traffic. The purpose of an IDS is to alert the network to the fact that
+it is under attack, so that more active security measures may be
+deployed.
+
+The results from the benign training data show that some rules cause
+false positives, even on data they are trained on. This might be because
+some rules need to be calibrated, or because some attacks are
+indistinguishable from legitimate traffic. In all cases, these false
+positives are comparatively few in number, with the accuracy of the
+detection rules reaching over 95% in all cases.
+
 
 ## 8. Discussion
 ### 8.1 Effectiveness of Simple Signatures
+From the data we can see that the effectiveness of the rules vary from
+attack to attack. As an example, the rules detected a TCP DDoS attack
+over 99% of the time, while SQL injection attacks were detected only
+about a third of the time. We also see that the simplicity of the rules
+allows for some overlap in detection of suspicious activity, as seen in
+the example of the vulnerability scanner, which also set off rules for
+XSS attacks and SQL injections. On the other hand, the simpler rules
+also risk false positives, as they have a higher risk of mistaking
+normal traffic for an attack scenario.
 ### 8.2 Detection vs. False Positives
+An important part of the discussion of security is the tradeoff between
+detection and false positives. A set of rules which is broad enough to
+catch all types of attack is inevitably going to generate false
+positives, as some attacks are practically indistinguishable from
+legitimate traffic. The decision to be made is, in essence, "What
+degree of false positives is acceptable in order to detect attacks?",
+or alternatively, "What degree of undetected attacks is acceptable in
+order to eliminate false positives?"
+
+The role of the security engineer in this question is to tighten the
+margins to the most extreme degree. It is the engineer who analyses the
+data in order to determine where the cutoff lies for what amount of
+traffic is legitimate business as usual and what amount is a DDoS attack
+attempting to disable critical systems. It is the engineer who decides
+which SQL queries are legitimate requests for information and which are
+attempts to inject malicious code into the database. It is the engineer
+who decides which requests to connect to a port are legitimate
+connections and which are attempts to discover the OS the system runs
+on. It is therefore vital for a security engineer to know what the
+system they are working on is expected to do, and to know what to do
+when it is doing something it should not.
 ### 8.3 Limitations
-Note:
-- Suricata cannot write rules for ARP traffic, so ARP spoofing cannot be detected directly.
-- Considered but not used: [UNSW-NB15](https://research.unsw.edu.au/projects/unsw-nb15-dataset) (too big and out of scope)
+Suricata is not a perfect program. It has a number of constraints which
+limit its usefulness in several places. One of these constraints is that
+it only operates on protocols and services which act in layer 3 or
+above. As such, it cannot act upon attacks which target processes in
+layers 1 or 2, leaving a vulnerability which must be covered by other
+systems.
+
+Another limitation of the program is the simplicity of its memory.
+Suricata does not remember any of the packets it has analyzed in the
+past, and rules which rely on flow rate or capacity simply count how
+many times that rule has been triggered during the relevant time period
+to determine if an alert should be made. This means that Suricata cannot
+detect suspicious rebroadcasts of requests, which might be indicative of
+an attack.
+
+Finally, Suricata is also heavily dependent on knowledge of the
+legitimate goings-on of the system in order to identify legitimate
+traffic. This means that it is impractical to import rules wholesale
+from one network to another, instead requiring thresholds for matters
+like number of request per minute, or what ports indicate legitimate or
+illicit activity, to be recalibrated from system to system.
 
 ## 9. Conclusion
 
@@ -97,6 +1122,17 @@ Secondly, I built the evaluation scripts, `evaluate_training.py` and `evaluate_t
 Along with this experimental part of the project, I adapted and fixed the `run.sh` script to allow centralized control of the Python scripts, Suricata and the datasets, which made the repository easier to use. Finally, I prepared and configured the setup, the usage documentation and the repository layout described in the `README.md`.
 
 Contribution in the report: 1, 2, 3.
+
+### Carl Sahlin
+I worked on determining what software we should use for the intrusion detection, parts of the Suricata detection rules, and analysis and reflection of the results of the project.
+
+Initially, I looked through the documentation for Suricata and Zeek, determining that Suricata was more suitable for the project as we had envisioned it. My primary motivation for this was that Suricata had better and more available documentation, which indicated that it would be easier to create and customize our own rules for network detection.
+
+Additionally, I created rules for detecting HTTP DDoS attacks, OS Fingerprinting, and MITM attacks. In this process I found that Suricata was not particularly well suited for detecting the DNS and ARP spoofing found in the MITM attacks, but decided that this was an interesting display of an area where Suricata is lacking, which would be a good point of discussion.
+
+Finally, I analyzed the results of the testing scripts, and drew conclusions from those results. I also formatted the results into tables for ease of understanding. I then discussed parts of the project which I thought would be interesting in the project report. This included the aforementioned limitations of Suricata, but also the tensions between detecting malicious traffic and allowing for false positives, and how effective the rules had actually been for detecting attacks.
+
+Contribution in the report 4.3.8, 4.3.10, 4.3.11, 7, 8.
 
 ## References
 [1] https://www.ibm.com/think/topics/intrusion-detection-system
