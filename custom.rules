@@ -188,16 +188,6 @@ alert icmp any any -> any any (msg:"Port scan: UDP port unreachable"; itype:3; i
 
 alert tcp any any -> any any (msg:"Port scan: SYN window 512"; flags:S; window:512; sid:1000101;)
 
-#alert tcp any any -> any any (msg:"Port scan: SYN without options"; flags:S; tcp.hdr; bsize:20; sid:1000102;)
-
-# DoS
-alert tcp any any -> any any (msg:"DoS: SYN flood"; flags:S,12; flow:stateless; threshold:type both, track by_dst, count 300, seconds 5; sid:1000201;)
-
-alert udp any any -> any any (msg:"DoS: UDP flood"; threshold:type both, track by_dst, count 500, seconds 5; sid:1000213;)
-
-alert icmp any any -> any any (msg:"DoS: ICMP echo flood"; itype:8; threshold:type both, track by_dst, count 100, seconds 5; sid:1000215;)
-
-# Reconnaissance
 alert tcp any any -> any any (msg:"Recon: SYN scan"; flags:S,12; flow:stateless; threshold:type both, track by_src, count 100, seconds 10; sid:1000214;)
 
 alert tcp any any -> any any (msg:"Recon: many RST/ACK replies (closed ports)"; flags:RA; flow:stateless; threshold:type both, track by_dst, count 20, seconds 60; sid:1000203;)
@@ -212,6 +202,14 @@ alert tcp any any -> any any (msg:"Recon: Xmas scan"; flags:FPU; sid:1000207;)
 
 alert tcp any any -> any any (msg:"Recon: SYN+FIN invalid"; flags:SF; sid:1000206;)
 
+#alert tcp any any -> any any (msg:"Port scan: SYN without options"; flags:S; tcp.hdr; bsize:20; sid:1000102;)
+
+# DoS
+alert tcp any any -> any any (msg:"DoS: SYN flood"; flags:S,12; flow:stateless; threshold:type both, track by_dst, count 300, seconds 5; sid:1000201;)
+
+alert udp any any -> any any (msg:"DoS: UDP flood"; threshold:type both, track by_dst, count 500, seconds 5; sid:1000213;)
+
+alert icmp any any -> any any (msg:"DoS: ICMP echo flood"; itype:8; threshold:type both, track by_dst, count 100, seconds 5; sid:1000215;)
 # ICMP flood
 
 alert icmp any any -> any any (msg:"ICMP flood echo requests (burst flood)"; itype:8; detection_filter: track by_dst, count 500, seconds 1; classtype:attempted-dos; sid:1006001;)
