@@ -120,7 +120,6 @@ An UDP flood is a DoS attack where the attacker sends a large number of UDP pack
 ##### 4.3.8.4 TCP SYN Flood
 A TCP SYN flood is a DoS attack where the three-way handshake is misused. In a normal TCP connection, the client sends a SYN packet, the server answers with a SYN, ACK, and the client establishes the connection with an ACK. In a SYN flood, the attacker sends a large number of SYN packets. These packets initiate a connection to the server, but the three-way handshake is never completed. The server keeps the state from the half-open connection in a backlog queue. The backlog queue is limited, therefore when several SYN’s are sent in quick succession, the limit is reached quickly. When the backlog is full, the server can no longer establish any new connections [16]. In the traffic, the attack can be seen as a large number of packets with only the SYN flag set going to the same host within a short time. The rules for the TCP SYN floods are the same as for the other floods, with regards to the burst and extended rule. But also rules for when SYN packets without TCP option are sent and when the target answers with many RST,ACK (answer for SYN packets that are sent to a port that is not listening).
 
-#### 4.3.9 Reconnaissance
 #### 4.3.10 OS Fingerprinting
 An OS Fingerprinting attack is an attack which aims to discover the OS
 (Operating System) of the target. This information can then be used in
@@ -151,8 +150,7 @@ Unfortunately, Suricata supports neither checking for retransmissions
 nor the DNS transmission ID, so the rules simply check for repeated DNS
 requests during a short time, which is likely to cause false positives.
 
-### 4.4 Benign Traffic
-### 4.5 Ground Truth
+### 4.4 Ground Truth
 The ground truth tells us which traffic is really an attack and which is benign. Suricata does not see it. We only use it after Suricata has run, to check if the alerts were right. Both datasets come with CSV files that hold the labels, but they label the traffic in different ways.
 
 In Edge-IIoTset, each row in the CSV is one packet, with a label that is 1 for attack and 0 for normal traffic. In the attack files all rows are labelled as attack, and in the normal files all rows are labelled as normal.
