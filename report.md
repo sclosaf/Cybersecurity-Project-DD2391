@@ -45,6 +45,16 @@ The scope of the project is limited to a network-based, signature-based intrusio
 
 ## 4. Experimental Environment
 ### 4.1 Environment
+All experiments were run offline on a Linux machine with Suricata. Suricata read the recorded traffic from the pcap files instead of a live network. The same setup was used for both datasets. We ran Suricata with:
+
+```
+suricata -r <file.pcap> -S custom.rules -l <output folder> -k none
+```
+
+We use `-r` to read a pcap file, `-S` to load only our rules, `-l` to choose the output folder and `-k none` to turn off checksum checks, since recorded traffic often has wrong checksums.
+
+Suricata writes its alerts to `eve.json`. Two Python scripts compare these alerts with the ground truth: `evaluate_training.py` for Edge-IIoTset and `evaluate_test.py` for CIC-IDS-2017. The training script uses the `dpkt` library to read packet timestamps from the pcap. `setup.sh` puts the datasets in place and `run.sh` runs Suricata and then the right evaluation script.
+
 ### 4.2 Dataset
 The rules were developed on one dataset and then evaluated on another second dataset in a different network. This was done in order to test whether the rules also generalises to other environments rather to where they were created. 
 
@@ -72,8 +82,13 @@ A vulnerability scanner is a tool used in the reconnaissance stage to find a way
 A web shell is a malicious script that an attacker uploads to a web server through a vulnerable file upload function. The script allows the attacker to execute commands on the server through HTTP requests. [12] The goal is to gain control over the server, or use it as a foothold for persistent access or lateral movements. [13] 
 
 #### 4.3.5 Path Traversal
-#### 4.3.6 XXS
+A path traversal attack is when the attacker tries to read files on a web server that should not be reachable from the web. The attacker does this by adding `../` to the file path in a request, which means "go up one folder". By repeating it several times, the attacker can access system files such as `/etc/passwd`. The `../` can also be encoded, for example as `%2e%2e%2f` [17]. Since the request is sent over HTTP, these patterns are visible in the URL. Our rules therefore look for repeated `../`, its encoded forms and the names of common system files in the URL.
+
+#### 4.3.6 XSS
+A cross-site scripting (XSS) attack is when the attacker injects JavaScript code into a web page. This works when a website takes user input, such as a search field or a comment, and shows it on the page without checking it. The code then runs in the browser of anyone who opens the page and can steal data such as their cookies [18]. The attack is sent in HTTP requests, so the code is visible in the URL or the request body. It often contains HTML tags like `<script>` or `<img>`, or JavaScript like `onerror=` or `alert(`. Our rules look for these patterns in the URL. A few rules also check the request body, for example for `%3Cscript`, which is `<script` in encoded form.
+
 #### 4.3.7 Port Scanning
+A port scan is when the attacker checks which ports on a target are open, to find out which services are running on it. Attackers use this to find services that might have weaknesses they can exploit [19]. The most common way is a SYN scan. The attacker sends a SYN packet to many ports and looks at the replies. A SYN/ACK means the port is open and a RST means the port is closed. The attacker never finishes the three-way handshake. For UDP, a closed port answers with an ICMP port unreachable message instead [20]. In the traffic, a port scan shows up as one host sending packets to many different ports in a short time and getting many RST or ICMP replies back. Our rules count these replies and alert when there are too many in a short time. They also look for packets with odd TCP flags, such as only FIN set, and SYN packets with an unusual window size.
 
 #### 4.3.8 DoS
 
@@ -138,6 +153,13 @@ requests during a short time, which is likely to cause false positives.
 
 ### 4.4 Benign Traffic
 ### 4.5 Ground Truth
+The ground truth tells us which traffic is really an attack and which is benign. Suricata does not see it. We only use it after Suricata has run, to check if the alerts were right. Both datasets come with CSV files that hold the labels, but they label the traffic in different ways.
+
+In Edge-IIoTset, each row in the CSV is one packet, with a label that is 1 for attack and 0 for normal traffic. In the attack files all rows are labelled as attack, and in the normal files all rows are labelled as normal.
+
+In CIC-IDS-2017, each row in the CSV is one flow, which means all the packets of one connection between two hosts. A flow is identified by its source IP, source port, destination IP, destination port and protocol. Its label is either `BENIGN` or the name of an attack, and we count every label other than `BENIGN` as an attack.
+
+We used the corrected labels for CIC-IDS-2017 and a regenerated CSV for the UDP flood in Edge-IIoTset.
 
 ## 5. Suricata Rules
 ### 5.1 Rule Design Principles
@@ -153,8 +175,35 @@ The rules that count packets have a threshold. When a certain number of matching
 
 ## 6. Evaluation Methodology
 ### 6.1 Experimental Procedure
+We ran Suricata on each pcap file on its own: the 24 captures of Edge-IIoTset and the 5 days of CIC-IDS-2017. After each run, an evaluation script compared the alerts with the ground truth of the same capture.
+
+For Edge-IIoTset, the script links each alert to a packet using the packet number, and links each CSV row to a packet using its time. A packet counts as detected if Suricata alerted on it or on another packet in the same connection.
+
+For CIC-IDS-2017, the script links each alert to a flow using its IP addresses, ports and protocol. A flow counts as detected if at least one alert is linked to it.
+
 ### 6.2 Confusion Matrix
+The confusion matrix compares what Suricata said with the ground truth. Every packet or flow ends up in one of four groups:
+
+|        | Alert               | No alert            |
+|--------|---------------------|---------------------|
+| Attack | True Positive (TP)  | False Negative (FN) |
+| Benign | False Positive (FP) | True Negative (TN)  |
+
+True positives are attacks that got an alert, and false negatives are attacks that were missed. False positives are benign traffic that got an alert by mistake, and true negatives are benign traffic with no alert. In Edge-IIoTset we count packets, and in CIC-IDS-2017 we count flows. Since each Edge-IIoTset capture has only attack or only normal traffic, an attack capture can only have TP and FN, and a normal capture can only have FP and TN.
+
 ### 6.3 Evaluation Metrics
+From the four numbers in the confusion matrix we calculate these metrics:
+
+| Metric    | Formula                          | What it tells us |
+|-----------|----------------------------------|------------------|
+| Recall    | TP / (TP + FN)                   | How many of the attacks were detected |
+| Precision | TP / (TP + FP)                   | How many of the alerts were real attacks |
+| FPR       | FP / (FP + TN)                   | How much of the benign traffic got a false alarm |
+| TNR       | TN / (TN + FP)                   | How much of the benign traffic got no alert |
+| Accuracy  | (TP + TN) / (TP + FN + FP + TN)  | How much of all traffic was handled correctly |
+| F1        | 2TP / (2TP + FP + FN)            | Recall and precision combined in one number |
+
+FPR stands for false positive rate and TNR for true negative rate. If a formula would divide by 0, the metric is shown as N/A in the results.
 
 ## 7. Results
 
@@ -1183,6 +1232,15 @@ Later, when we needed an external dataset to test our rules on, I looked for fur
 
 Contribution in the report: 4.2, 4.3.1, 4.3.2, 4.3.3, 4.3.4, 4.3.8.2, 4.3.8.3, 4.3.8.4, 5.1, 5.2, 5.3, 9.
 
+### Youssef Abdelrahman
+I worked on finding the training dataset and writing the Suricata rules for XSS, port scanning and the uploading attack. I also wrote parts of the report.
+
+At the start of the project, I found Edge-IIoTset, which we used as the training set. I went through it to see which attacks it had and how its pcap and CSV files looked.
+
+I wrote the rules for XSS, port scanning and the uploading attack. The XSS rules look for HTML tags and JavaScript code in the URL and the request body. The port scanning rules look for many replies from closed ports, packets with odd TCP flags and SYN packets with unusual window sizes. The uploading rules look for PHP files being uploaded to the server and then requested from the uploads folder, which is how a web shell is used.
+
+Contribution in the report: 4.1, 4.3.5, 4.3.6, 4.3.7, 4.5, 6.
+
 ## References
 [1] https://www.ibm.com/think/topics/intrusion-detection-system
 [2] https://onlinelibrary.wiley.com/doi/10.1155/2022/9663052
@@ -1200,3 +1258,7 @@ Contribution in the report: 4.2, 4.3.1, 4.3.2, 4.3.3, 4.3.4, 4.3.8.2, 4.3.8.3, 4
 [14] https://www.cloudflare.com/learning/ddos/ping-icmp-flood-ddos-attack/
 [15] https://www.cloudflare.com/learning/ddos/udp-flood-ddos-attack/
 [16] https://www.rfc-editor.org/info/rfc4987/ 
+[17] https://community.owasp.org/attacks/Path_Traversal
+[18] https://community.owasp.org/attacks/xss
+[19] https://attack.mitre.org/techniques/T1046/
+[20] https://nmap.org/book/man-port-scanning-techniques.html
