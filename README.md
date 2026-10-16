@@ -45,7 +45,7 @@ The datasets are not in the repository, they are too large to be managed by git 
 - `CICIDS2017_improved.zip`: test CSVs.
   Download: [CIC-IDS-2017 CSVs](https://intrusion-detection.distrinet-research.be/CNS2022/CICIDS2017.html)
 - `Monday-WorkingHours.pcap`, `Tuesday-WorkingHours.pcap`, `Wednesday-workingHours.pcap`, `Thursday-WorkingHours.pcap`, `Friday-WorkingHours.pcap`: test PCAPs.
-  Download: [UNB CIC-IDS-2017](https://www.unb.ca/cic/datasets/ids-2017.html), [direct listing](https://cicresearch.ca/CICDataset/CIC-IDS-2017/browse.php?p=CIC-IDS-2017%2FPCAPs)
+  Download: [UNB CIC-IDS-2017](https://www.unb.ca/cic/datasets/ids-2017.html)
 
 Then run:
 

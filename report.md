@@ -243,7 +243,7 @@ Evaluated signatures:
  |  2,701,600  |             UDP flood (burst flood)|
  |   284,147   | UDP flood victim sending many ICMP unreachables|
  |     82      |                 DoS: UDP flood|
- 
+
 Metrics:
 
 |     Type    |   Number|
@@ -533,7 +533,7 @@ Metrics:
 
 ### 7.2 Training (Benign)
 
-#### 7.2.1 Distance: 
+#### 7.2.1 Distance:
 
 Evaluated signatures:
 
@@ -559,7 +559,7 @@ Metrics:
 |   Accuracy  |  98.9981%|
 |      F1     |   0.0000%|
 
-#### 7.2.2 Flame Sensor: 
+#### 7.2.2 Flame Sensor:
 
 Evaluated signatures:
 
@@ -587,7 +587,7 @@ Metrics:
 |      F1       | 0.0000%|
 
 
-#### 7.2.3 Heart Rate: 
+#### 7.2.3 Heart Rate:
 
 Evaluated signatures:
 
@@ -613,7 +613,7 @@ Metrics:
 |      F1     |  0.0000%|
 
 
-#### 7.2.4 IR Reciever: 
+#### 7.2.4 IR Reciever:
 
 Evaluated signatures:
 
@@ -641,7 +641,7 @@ Metrics:
 |      F1     |   0.0000%|
 
 
-#### 7.2.5 Modbus: 
+#### 7.2.5 Modbus:
 
 Evaluated signatures:
 
@@ -667,7 +667,7 @@ Metrics:
 |   Accuracy  |  100.0000%|
 |      F1     |     N/A|
 
-#### 7.2.6 ph Value: 
+#### 7.2.6 ph Value:
 
 Evaluated signatures:
 
@@ -694,7 +694,7 @@ Metrics:
 |      F1      | 0.0000%|
 
 
-#### 7.2.7 Soil Moisture: 
+#### 7.2.7 Soil Moisture:
 
 Evaluated signatures:
 
@@ -721,7 +721,7 @@ Metrics:
 |   Accuracy  |  98.3281%|
 |      F1     |   0.0000%|
 
-#### 7.2.8 Sound Sensor: 
+#### 7.2.8 Sound Sensor:
 
 Evaluated signatures:
 
@@ -750,7 +750,7 @@ Metrics:
   | Accuracy   | 98.7066%|
   |    F1      |  0.0000%|
 
-#### 7.2.9 Temperature and Humidity: 
+#### 7.2.9 Temperature and Humidity:
 
 Evaluated signatures:
 
@@ -780,7 +780,7 @@ Metrics:
 |   Accuracy   | 99.5165%|
 |      F1      |  0.0000%|
 
-#### 7.2.10 Water Levels: 
+#### 7.2.10 Water Levels:
 
 Evaluated signatures:
 
@@ -809,7 +809,7 @@ Metrics:
 
 ### 7.3 Test
 
-#### 7.3.1 Monday: 
+#### 7.3.1 Monday:
 
 Evaluated signatures:
 
@@ -849,7 +849,7 @@ Metrics:
 |      F1     |  0.0000%|
 
 
-#### 7.3.2 Tuesday: 
+#### 7.3.2 Tuesday:
 
 Evaluated signatures:
 
@@ -889,7 +889,7 @@ Metrics:
 |      F1     |  0.0000%|
 
 
-#### 7.3.3 Wednesday: 
+#### 7.3.3 Wednesday:
 
 Evaluated signatures:
 
@@ -935,7 +935,7 @@ Metrics:
 |      F1     |  47.7895%|
 
 
-#### 7.3.4 Thursday: 
+#### 7.3.4 Thursday:
 
 Evaluated signatures:
 
@@ -986,7 +986,7 @@ Metrics:
 |      F1     |  95.3109%|
 
 
-#### 7.3.5 Friday: 
+#### 7.3.5 Friday:
 
 Evaluated signatures:
 
