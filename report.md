@@ -1172,7 +1172,7 @@ Additionally, I created rules for detecting HTTP DDoS attacks, OS Fingerprinting
 
 Finally, I analyzed the results of the testing scripts, and drew conclusions from those results. I also formatted the results into tables for ease of understanding. I then discussed parts of the project which I thought would be interesting in the project report. This included the aforementioned limitations of Suricata, but also the tensions between detecting malicious traffic and allowing for false positives, and how effective the rules had actually been for detecting attacks.
 
-Contribution in the report 4.3.8, 4.3.10, 4.3.11, 7, 8.
+Contribution in the report 4.3.8.1, 4.3.10, 4.3.11, 7, 8.
 
 ### Fabian Älvebratt
 I worked on finding datasets for the project, the Suricata rules for the flooding attacks and their thresholds, and a large part of the written report.
@@ -1181,7 +1181,7 @@ At the start of the project, I went through the candidate datasets and suggested
 
 Later, when we needed an external dataset to test our rules on, I looked for further candidates with benign traffic that could be used to measure false alarms. We ended up going back to CIC-IDS-2017, as it was in line with our scope. Because of the problems I had found in Edge-IIoTset, I checked whether CIC-IDS-2017 had any similar labelling issues. It turned out that it had a number of errors, but I found that a corrected version of the labels existed, and this is the version we used to test our rules.
 
-Contribution in the report: 4.2, 4.3.1, 4.3.2, 4.3.3, 4.3.4, 4.3.8.1, 4.3.8.2, 4.3.8.3, 5.1, 5.2, 5.3, 9.
+Contribution in the report: 4.2, 4.3.1, 4.3.2, 4.3.3, 4.3.4, 4.3.8.2, 4.3.8.3, 4.3.8.4, 5.1, 5.2, 5.3, 9.
 
 ## References
 [1] https://www.ibm.com/think/topics/intrusion-detection-system
