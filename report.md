@@ -46,15 +46,38 @@ The scope of the project is limited to a network-based, signature-based intrusio
 ## 4. Experimental Environment
 ### 4.1 Environment
 ### 4.2 Dataset
+The rules were developed on one dataset and then evaluated on another second dataset in a different network. This was done in order to test whether the rules also generalises to other environments rather to where they were created. 
+
+#### 4.2.1 Edge-IIoTset
+Edge-IIoTset [5] is a cybersecurity dataset for IoT and Industrial IoT applications, published by Ferrag et al. in 2022. It was generated in a purpose-build testbed using more than ten types of IoT devices, such as heart rate sensor, water level sensor, pH meter sensor, soil moisture sensor and more. These are labelled as normal traffic in the set. Moreover, the dataset contains 14 attacks, which are grouped into five categories, these are Dos/DDoS, information gathering, Man in the middle, injection and malware. The dataset includes both the normal traffic and the attack traffic in raw pcap format and labelled CSV files. 
+
+We used Edge-IIoTset to develop our rules. It covers most of the attack types in our scope and the dataset was relatively small in size which made it practical to work with. Each record in the CSV files is labelled as normal or attack with its corresponding attack type. This marks the ground truth for the evaluation. During the work we found that the CSV file for the UDP flood attack contained errors with the labelling, so we regenerated it from the corresponding pcap file.
+
+#### 4.2.2 CIC-IDS-2017
+CIC-IDS-2017 [6] is a dataset created by the Canadian Institute for Cybersecurity. It includes both benign traffic and traffic from the most common attacks. The dataset contains traffic from five days, captured from Monday to Friday in July 2017. Monday is a normal day with only benign traffic, while the remaining days also contain attacks, such as brute force, DoS and DDoS, web attacks, port scanning, and more. As in Edge-IIoTset, the dataset includes both raw pcap files and labelled CSV files.
+
+We used CIC-IDS-2017 as an external test set, since its attack types overlap with Edge-IIoTset and because the dataset is in another network. The original labels of CIC-IDS-2017 contain a number of error. We therefore used a corrected version of the labels [7], together with the original pcap files. 
+
 ### 4.3 Attack Scenarios
 #### 4.3.1 SQL Injections
+A SQL injection attack is an attack which targets a web application’s database by injecting SQL code into its queries. If the application has a field for user input that it does not validate, then an attacker can enter valid SQL code instead of a normal input. This can lead to the attacker being able to read, change or delete data in the database [8]. The traffic in our scope is HTTP, and because of that the requests are sent in cleartext. Therefore, the injected code is visible in the request, containing SQL keywords that uncommonly appear in normal requests. 
+
 #### 4.3.2 Brute Force
+A brute force attack is an attack that systematically tries a large number of passwords against an account, with the aim of gaining access to it. The attack typically goes through a list of common passwords until one of them works. Each login attempt looks like normal traffic, since normal users also log in and sometimes enter the wrong password. The difference lies in the number of attempts. During a brute force attack many login attempts are sent from the same source to the same login page, where most of the login attempts fail. This makes it possible to distinguish an attack from a normal user logging in. [9]
+
 #### 4.3.3 Vulnerability Scanner
+A vulnerability scanner is a tool used in the reconnaissance stage to find a way into a system, but it can also be used by system administrators to find weaknesses in their own systems. It probes the system for any known weaknesses, such as misconfigurations, outdated versions, coding flaws and more. [10] Because the scanner looks for many types of weakness at the same time, a large number of requests are being sent in quick succession. Some requests might give a meaningful response, while others may end up giving error responses since the scanner might scan for weaknesses that do not exist on the system. [11] 
+
 #### 4.3.4 Web Shell
+A web shell is a malicious script that an attacker uploads to a web server through a vulnerable file upload function. The script allows the attacker to execute commands on the server through HTTP requests. [12] The goal is to gain control over the server, or use it as a foothold for persistent access or lateral movements. [13] 
+
 #### 4.3.5 Path Traversal
 #### 4.3.6 XXS
 #### 4.3.7 Port Scanning
+
 #### 4.3.8 DoS
+
+##### 4.3.8.1 HTML DoS
 A HTML DDoS (HyperText Markup Language Distributed Denial of Service)
 attack is an attack which aims to overwhelm a system by subjecting it to
 a large number of HTML requests, thus occupying too much computational
@@ -72,6 +95,15 @@ different sources in an effort to disguise the attack as merely an
 abnormal amount of possibly legitimate traffic, which means that the
 rules have to track the request frequency by the destination of the
 requests instead of the source.
+
+##### 4.3.8.2 ICMP Flood
+An ICMP flood is a DoS attack where the attacker sends a large number of ICMP echo requests, normally known as pings, to a target. Under normal circumstances, when a ping is sent, the host answers the echo request with an ICMP echo reply to notify that it is reachable. However, during a flood, the target must process every request and send a reply, which might overwhelm the target in handling the requests [14]. Therefore, the distinguishing factor is the rate of the ICMP echo requests. Our rules therefore count the number of ICMP echo requests sent to the same host, both in short bursts and over an extended time, and sends an alert when the count exceeds a threshold. Another rule only counts echo requests sent without a payload, and then sends an alert when a certain threshold is reached. This is because ICMP echo requests typically contain a payload.
+
+##### 4.3.8.3 UDP Flood
+An UDP flood is a DoS attack where the attacker sends a large number of UDP packets to a target. UDP is stateless, meaning that it does not need to establish a connection before communicating. The attacker can utilize this to send packets directly to the target, without any previous connection being made. The target then receives a UDP packet, and if no program is listening to the port where it was sent to, it replies with an ICMP destination unreachable message. When a large number of UDP packets are being sent in quick succession, the target then has to check and reply back with an error message to most of the packets. This process uses up the target resources [15], leading to the target not being able to handle normal traffic. The rules for the UDP are similar to those for ICMP, with regards to the burst and extended rule. There are also rules for empty packets being sent and when the target host sends a large number of ICMP destination unreachable messages. 
+
+##### 4.3.8.4 TCP SYN Flood
+A TCP SYN flood is a DoS attack where the three-way handshake is misused. In a normal TCP connection, the client sends a SYN packet, the server answers with a SYN, ACK, and the client establishes the connection with an ACK. In a SYN flood, the attacker sends a large number of SYN packets. These packets initiate a connection to the server, but the three-way handshake is never completed. The server keeps the state from the half-open connection in a backlog queue. The backlog queue is limited, therefore when several SYN’s are sent in quick succession, the limit is reached quickly. When the backlog is full, the server can no longer establish any new connections [16]. In the traffic, the attack can be seen as a large number of packets with only the SYN flag set going to the same host within a short time. The rules for the TCP SYN floods are the same as for the other floods, with regards to the burst and extended rule. But also rules for when SYN packets without TCP option are sent and when the target answers with many RST,ACK (answer for SYN packets that are sent to a port that is not listening). 
 
 #### 4.3.9 Reconnaissance
 #### 4.3.10 OS Fingerprinting
@@ -109,8 +141,15 @@ requests during a short time, which is likely to cause false positives.
 
 ## 5. Suricata Rules
 ### 5.1 Rule Design Principles
+The rules were written to detect the attacks that are described in Section 4.3. This was done by looking at what makes each attack different from normal traffic. For some of the attacks, the difference is in the content of the packets, for example HTTP requests containing SQL code. For the other attacks, where the content of the packets do not differ, the packets on their own look like normal traffic, but they differ in how many of them are sent. For these, the rules instead count how many matching packets are sent within a certain time, and sends an alert when the count goes above a threshold.  
+
+Each rule has its own purpose and detects something that the other rules don’t. Having two rules that match the same traffic does not improve the detection. It only doubles the alert. Therefore, we’ve tried creating rules that are specific enough to not alert on normal traffic, but at the same time general enough to be able to detect variants of certain attacks. 
+
 ### 5.2 Initial Rules
+The first version consisted of a small set of rules with roughly one rule for each attack. The rules were tested on Edge-IIoTset by running Suricata on the attack traffic and the normal traffic, seeing if an alert was raised or not. When an alert was raised on the attack traffic, it meant that the rule detected the attack. In contrast, when an alert was raised on the normal traffic it meant that the rule gave a false alarm. The first version of the rules already worked, but having only one rule per attack meant that it only covered one way the attack could be executed. Therefore, more rules were added to ensure that variants of the attacks could be detected as well.
+
 ### 5.3 Rule Thresholds
+The rules that count packets have a threshold. When a certain number of matching packets are detected within a certain time, the threshold is reached and an alert is raised. A low threshold can help in detecting slower attacks, but there is a risk it alerts on normal traffic. A high threshold avoids false alarms, but instead it misses the slower attacks. The thresholds were chosen empirically. Several different values were tested against both the attack traffic and the normal traffic in the Edge-IIoTset dataset. It is worth noting that the amount of traffic differs between networks, meaning that a threshold that works for one network might not work in another. The threshold value has to be adjusted for networks with a higher or lower load of normal traffic. 
 
 ## 6. Evaluation Methodology
 ### 6.1 Experimental Procedure
@@ -1109,6 +1148,7 @@ like number of request per minute, or what ports indicate legitimate or
 illicit activity, to be recalibrated from system to system.
 
 ## 9. Conclusion
+The aim of this project was to see how well custom signature-based rules in Suricata can distinguish malicious traffic from normal traffic. The results show that the effectiveness varies from attack to attack. The TCP SYN flood was detected in over 99% of the cases, while SQL injection was only detected in about a third of the cases. The false alarms on the normal traffic were few, but shows that some rules may need further calibration. The results from CIC-IDS-2017 varied from day to day. The rules worked well on the days with the attacks they were written for, but missed the attacks that were not part of the scope. Finally, the rules and their thresholds depend on the normal traffic and load in the network in which they were created. The rules cannot be moved to another network without first being adjusted.  
 
 ## 10. Individual contributions
 
@@ -1134,8 +1174,29 @@ Finally, I analyzed the results of the testing scripts, and drew conclusions fro
 
 Contribution in the report 4.3.8, 4.3.10, 4.3.11, 7, 8.
 
+### Fabian Älvebratt
+I worked on finding datasets for the project, the Suricata rules for the flooding attacks and their thresholds, and a large part of the written report.
+
+At the start of the project, I went through the candidate datasets and suggested CIC-IDS-2017, since it had raw pcap files, several of the attacks in our scope, and labelled traffic that we could compare our alerts against to count false alarms and missed attacks. I then wrote the rules for the ICMP, UDP and TCP SYN floods. The first version had one rule per attack, which I later extended into several rules to account for different variations of the attacks. To choose the thresholds, I empirically tested different values against both the attack traffic and the normal traffic in Edge-IIoTset, to find a balance for traffic load since it differs a lot from network to network. While doing this, I found that the ground truth CSV file for the UDP flood contained errors, so I regenerated it from the original pcap file and structured it accordingly for the project. 
+
+Later, when we needed an external dataset to test our rules on, I looked for further candidates with benign traffic that could be used to measure false alarms. We ended up going back to CIC-IDS-2017, as it was in line with our scope. Because of the problems I had found in Edge-IIoTset, I checked whether CIC-IDS-2017 had any similar labelling issues. It turned out that it had a number of errors, but I found that a corrected version of the labels existed, and this is the version we used to test our rules.
+
+Contribution in the report: 4.2, 4.3.1, 4.3.2, 4.3.3, 4.3.4, 4.3.8.1, 4.3.8.2, 4.3.8.3, 5.1, 5.2, 5.3, 9.
+
 ## References
 [1] https://www.ibm.com/think/topics/intrusion-detection-system
 [2] https://onlinelibrary.wiley.com/doi/10.1155/2022/9663052
 [3] https://suricata.io/
 [4] https://github.com/EANimesha/Network-Intrusion-Detection-Datasets
+[5] https://ieeexplore.ieee.org/document/9751703
+[6] https://www.unb.ca/cic/datasets/ids-2017.html
+[7] https://intrusion-detection.distrinet-research.be/CNS2022/index.html
+[8] https://community.owasp.org/attacks/SQL_Injection
+[9] https://attack.mitre.org/techniques/T1110/001/
+[10] https://www.ibm.com/think/topics/vulnerability-scanning
+[11] https://owasp.github.io/www-project-automated-threats-to-web-applications/assets/oats/EN/OAT-014_Vulnerability_Scanning
+[12] https://community.owasp.org/vulnerabilities/Unrestricted_File_Upload
+[13] https://attack.mitre.org/techniques/T1505/003/
+[14] https://www.cloudflare.com/learning/ddos/ping-icmp-flood-ddos-attack/
+[15] https://www.cloudflare.com/learning/ddos/udp-flood-ddos-attack/
+[16] https://www.rfc-editor.org/info/rfc4987/ 
