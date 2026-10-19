@@ -129,6 +129,8 @@ The rules were written to detect the attacks that are described in Section 4.3. 
 
 Each rule has its own purpose and detects something that the other rules don’t. Having two rules that match the same traffic does not improve the detection. It only doubles the alert. Therefore, we’ve tried creating rules that are specific enough to not alert on normal traffic, but at the same time general enough to be able to detect variants of certain attacks.
 
+Inspiration was taken from [21], when building the rules. 
+
 ### 5.2 Initial Rules
 The first version consisted of a small set of rules with roughly one rule for each attack. The rules were tested on Edge-IIoTset by running Suricata on the attack traffic and the normal traffic, seeing if an alert was raised or not. When an alert was raised on the attack traffic, it meant that the rule detected the attack. In contrast, when an alert was raised on the normal traffic it meant that the rule gave a false alarm. The first version of the rules already worked, but having only one rule per attack meant that it only covered one way the attack could be executed. Therefore, more rules were added to ensure that variants of the attacks could be detected as well.
 
@@ -1129,3 +1131,4 @@ Contribution in the report: 4.1, 4.3.5, 4.3.6, 4.3.7, 4.5, 6.
 [18] https://community.owasp.org/attacks/xss
 [19] https://attack.mitre.org/techniques/T1046/
 [20] https://nmap.org/book/man-port-scanning-techniques.html
+[21] https://rules.emergingthreats.net/open/suricata-7.0.3/
