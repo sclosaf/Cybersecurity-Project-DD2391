@@ -1,9 +1,9 @@
 # Suricata-Based Network Intrusion Detection and Evaluation
 
 ## 1. Introduction
-Network Intrusion Detection Systems (NIDS) are designed to analyze and identify malicious traffic in order to identify potentially malicious activity by inspecting patterns associated with known attacks or unusual behaviour. This project aims to investigate the effectiveness and the limitations of a signature-based approach. We wrote a custom ruleset for Suricata, an open-source network analysis and threat detection software, and evaluated it on labelled packet captures.
+Network Intrusion Detection Systems (NIDS) analyse network traffic in order to identify potentially malicious activity, by inspecting patterns associated with known attacks or unusual behaviour. This project aims to investigate the effectiveness and the limitations of a signature-based approach. We wrote a custom ruleset for Suricata, an open-source network analysis and threat detection software, and evaluated it on labelled packet captures.
 
-We assess the ruleset by comparing Suricata's alerts with the ground truth of each capture, which gives true positives, false negatives, false positives and true negatives. From these, we compute recall, precision, false positive rate, true negative rate, accuracy and F1. The goal is to see how well custom signatures separate malicious from legitimate traffic, and what trade-offs appear when rules are refined to reduce false alarms.
+We assess the ruleset by comparing Suricata's alerts with the ground truth of each capture, which gives true positives, false negatives, false positives and true negatives. From these, we compute recall, precision, false positive rate, true negative rate, accuracy and F1. The goal is to see how well custom signatures separate malicious from legitimate traffic, and what trade-offs appear.
 
 ### 1.1 Network Intrusion Detection
 The Network Intrusion Detection System (NIDS) is a security mechanism designed to monitor network traffic and devices for known or potential malicious activity, suspicious behaviour or any violations [1]. The main purpose of a NIDS is to automate threat detection within a network, alerting administrators to suspicious activities.
@@ -42,7 +42,7 @@ We assume that Suricata has access to all relevant traffic, which is analysed of
 Since the experiments are conducted in a controlled environment, the ground truth of each traffic sample is known in advance. It is used to evaluate the effectiveness of the ruleset only after the detection analysis has been performed. Suricata distinguishes traffic only through its signatures and patterns, and it has no access to the labels.
 
 ### 3.4 Out-of-Scope Scenarios
-The scope of the project is limited to network-based, signature-based intrusion detection using Suricata. Therefore, the following detections are not addressed or performed in any way: host-based intrusion detection, malware analysis, and prevention (blocking) of traffic.
+Therefore, the following detections are not addressed or performed in any way: host-based intrusion detection and prevention (blocking) of traffic.
 
 ## 4. Experimental Environment
 ### 4.1 Environment
@@ -82,7 +82,7 @@ A brute force attack systematically tries a large number of passwords against an
 A vulnerability scanner is a tool used in the reconnaissance stage to find a way into a system, but it can also be used by system administrators to find weaknesses in their own systems. It probes the system for any known weaknesses, such as misconfigurations, outdated versions, coding flaws and more [10]. Because the scanner looks for many types of weaknesses at the same time, a large number of requests is sent in quick succession. Some requests might give a meaningful response, while others may end up giving error responses since the scanner might scan for weaknesses that do not exist on the system [11], which is an unusual behaviour we can use to our advantage.
 
 #### 4.3.4 Web Shell
-A web shell is a malicious script that an attacker uploads to a web server through a vulnerable file upload function. The script allows the attacker to execute commands on the server through HTTP requests [12]. The goal is to gain control over the server, or to use it as a foothold for persistent access or lateral movement [13]. The core characteristic of this attack is that a significant amount of data is sent back to the attacker by the server.
+A web shell is a malicious script that an attacker uploads to a web server through a vulnerable file upload function. The script allows the attacker to execute commands on the server through HTTP requests [12]. The goal is to gain control over the server, or to use it as a foothold for persistent access or lateral movement [13].
 
 #### 4.3.5 Path Traversal
 In a path traversal attack the attacker tries to read files on a web server that should not be reachable from the web. The attacker does this by adding `../` to the file path in a request, which means "go up one folder". By repeating it several times, the attacker can access system files such as `/etc/passwd` or other sensitive data. The `../` can also be encoded, for example as `%2e%2e%2f` [17]. Since the request is sent over HTTP, these patterns are visible in the URL. Our rules therefore look for repeated `../`, its encoded forms and the names of common system files in the URL.
@@ -129,7 +129,7 @@ The rules were written to detect the attacks that are described in Section 4.3. 
 
 Each rule has its own purpose and detects something that the other rules don’t. Having two rules that match the same traffic does not improve the detection. It only doubles the alert. Therefore, we’ve tried creating rules that are specific enough to not alert on normal traffic, but at the same time general enough to be able to detect variants of certain attacks.
 
-Inspiration was taken from [21], when building the rules. 
+Inspiration was taken from [21], when building the rules.
 
 ### 5.2 Initial Rules
 The first version consisted of a small set of rules with roughly one rule for each attack. The rules were tested on Edge-IIoTset by running Suricata on the attack traffic and the normal traffic, seeing if an alert was raised or not. When an alert was raised on the attack traffic, it meant that the rule detected the attack. In contrast, when an alert was raised on the normal traffic it meant that the rule gave a false alarm. The first version of the rules already worked, but having only one rule per attack meant that it only covered one way the attack could be executed. Therefore, more rules were added to ensure that variants of the attacks could be detected as well.
@@ -175,6 +175,8 @@ FPR stands for false positive rate and TNR for true negative rate. If a formula 
 
 #### 7.1.1 Backdoor Attack
 
+Evaluated signatures: none (no alerts were raised).
+
 Metrics:
 
 |    Type    |  Number|
@@ -198,10 +200,10 @@ Evaluated signatures:
 
 | Number  |                      Type|
 |-------- |-------------------------------------------------|
-| 16,645  |         TCP SYN flood (extended flood)|
-| 2,870   |           TCP SYN flood (burst flood)|
-|  895    | Potential HTTP DDoS attack detected (GET burst)|
-|  441    | Potential HTTP DDoS attack detected (GET flood)|
+| 16,689  |         TCP SYN flood (extended flood)|
+| 2,556   |           TCP SYN flood (burst flood)|
+|  929    | Potential HTTP DDoS attack detected (GET burst)|
+|  466    | Potential HTTP DDoS attack detected (GET flood)|
 |   45    |                 DoS: SYN flood|
 |   23    |                 Recon: SYN scan|
 
@@ -209,78 +211,77 @@ Metrics:
 
 |   Type    |   Number|
 |-----------| -----------|
-|    TP     |   143,471|
-|    FN     |   85,551|
+|    TP     |   138,493|
+|    FN     |   90,529|
 |    FP     |      0|
 |    TN     |      0|
 |   Total   |   229,022|
 |           | |
-|  Recall   |  62.6451%|
+|  Recall   |  60.4715%|
 | Precision |  100.0000%|
 |    FPR    |     N/A|
 |    TNR    |     N/A|
-| Accuracy  |  62.6451%|
-|    F1     |  77.0329%|
+| Accuracy  |  60.4715%|
+|    F1     |  75.3673%|
 
-#### 7.1.3 ICMP DDoS:
+#### 7.1.3 ICMP DDoS
 
 Evaluated signatures:
 
 |  Number   |                    Type|
 |-----------| -------------------------------------------|
-| 2,403,102 |  ICMP flood echo requests (empty payload)|
-| 2,201,181 |  ICMP flood echo requests (extended flood)|
-| 2,185,117 |   ICMP flood echo requests (burst flood)|
-|    81     |            DoS: ICMP echo flood|
+| 2,401,802 |  ICMP flood echo requests (empty payload)|
+| 2,321,181 |  ICMP flood echo requests (extended flood)|
+| 2,188,137 |   ICMP flood echo requests (burst flood)|
+|    110    |            DoS: ICMP echo flood|
 
 Metrics:
 
 |   Type    |   Number|
 |-----------| -----------|
-|    TP     |  2,913,922|
-|    FN     |     432|
+|    TP     |  2,913,898|
+|    FN     |     456|
 |    FP     |      0|
 |    TN     |      0|
 |   Total   |  2,914,354|
 |           | |
-|  Recall   |  99.9852%|
+|  Recall   |  99.9844%|
 | Precision |  100.0000%|
 |    FPR    |     N/A|
 |    TNR    |     N/A|
-| Accuracy  |  99.9852%|
-|    F1     |  99.9926%|
+| Accuracy  |  99.9844%|
+|    F1     |  99.9922%|
 
-#### 7.1.4 TCP SYN DDoS:
+#### 7.1.4 TCP SYN DDoS
 
 Evaluated signatures:
 
 |   Number   |                      Type|
 | -----------| -----------------------------------------------|
-|  1,163,807 |           TCP SYN flood (no options)|
-|   908,098  |           TCP SYN flood (burst flood)|
-|   881,320  |         TCP SYN flood (extended flood)|
-|   792,514  |  TCP SYN flood victim answering with many RSTs|
-|     118    |                 DoS: SYN flood|
+|  1,165,910 |           TCP SYN flood (no options)|
+|   948,634  |         TCP SYN flood (extended flood)|
+|   925,871  |           TCP SYN flood (burst flood)|
+|   793,720  |  TCP SYN flood victim answering with many RSTs|
+|     105    |                 DoS: SYN flood|
 
 Metrics:
 
-|     Type     |  Number|
-|  ----------- |-----------|
-|      TP      | 2,019,071|
-|      FN      |   1,049|
-|      FP      |     0|
-|      TN      |     0|
-|     Total    | 2,020,120|
-|              | |
-|    Recall    |  99.9481%|
-|   Precision  |  100.0000%|
-|     FPR      |    N/A|
-|      TNR     |     N/A|
-|   Accuracy   |  99.9481%|
-|      F1      |  99.9740%|
+|    Type     |  Number|
+| ----------- |-----------|
+|     TP      | 2,018,873|
+|     FN      |   1,247|
+|     FP      |     0|
+|     TN      |     0|
+|    Total    | 2,020,120|
+|             | |
+|   Recall    |  99.9383%|
+|  Precision  |  100.0000%|
+|    FPR      |    N/A|
+|     TNR     |     N/A|
+|  Accuracy   |  99.9383%|
+|     F1      |  99.9691%|
 
-
-#### 7.1.5 UDP DDoS:
+#### 7.1.5 UDP DDoS
 
 Evaluated signatures:
 
@@ -294,22 +295,22 @@ Evaluated signatures:
 
 Metrics:
 
-|     Type    |   Number|
-|  -----------| -----------|
-|      TP     |  3,214,994|
-|      FN     |     738|
-|      FP     |      0|
-|      TN     |      0|
-|     Total   |  3,215,732|
-|             | |
-|    Recall   |  99.9771%|
-|   Precision |  100.0000%|
-|      FPR    |     N/A|
-|      TNR    |     N/A|
-|   Accuracy  |  99.9771%|
-|      F1     |  99.9885%|
+|   Type    |   Number|
+|-----------| -----------|
+|    TP     |  3,214,994|
+|    FN     |     738|
+|    FP     |      0|
+|    TN     |      0|
+|   Total   |  3,215,732|
+|           | |
+|  Recall   |  99.9771%|
+| Precision |  100.0000%|
+|    FPR    |     N/A|
+|    TNR    |     N/A|
+| Accuracy  |  99.9771%|
+|    F1     |  99.9885%|
 
-#### 7.1.6 MITM:
+#### 7.1.6 MITM
 
 Evaluated signatures:
 
@@ -334,7 +335,7 @@ Metrics:
 |  Accuracy  |   N/A|
 |     F1     |   N/A|
 
-#### 7.1.7 OS Fingerprinting:
+#### 7.1.7 OS Fingerprinting
 
 Evaluated signatures:
 
@@ -344,7 +345,6 @@ Evaluated signatures:
 |   54      | Port scan: many closed port replies|
 |   35      |      TCP SYN flood (no options)|
 |    3      |   Recon: many RST/ACK replies (closed ports)|
-
 
 Metrics:
 
@@ -363,32 +363,34 @@ Metrics:
 |  Accuracy  |  26.9730%|
 |     F1     |  42.4862%|
 
-#### 7.1.8 Password attacks:
+#### 7.1.8 Password attacks
 
 Evaluated signatures:
 
-|   Number   |     Type|
-|  --------  |-----------------|
-|     11     | Recon: SYN scan|
+|   Number   |                              Type|
+|  --------  |------------------------------------------------------------|
+|   21,280   |        Brute force: repeated POST to login page|
+|   21,270   | Brute force: repeated failed logins (redirect to login page)|
+|     38     |                      Recon: SYN scan|
 
 Metrics:
 
 |    Type    |   Number|
 | -----------| -----------|
-|     TP     |     877|
-|     FN     |  1,052,508|
+|     TP     |   902,719|
+|     FN     |   150,666|
 |     FP     |      0|
 |     TN     |      0|
 |    Total   |  1,053,385|
 |            | |
-|   Recall   |   0.0833%|
+|   Recall   |  85.6970%|
 |  Precision |  100.0000%|
 |     FPR    |     N/A|
 |     TNR    |     N/A|
-|  Accuracy  |   0.0833%|
-|     F1     |   0.1664%|
+|  Accuracy  |  85.6970%|
+|     F1     |  92.2976%|
 
-#### 7.1.9 Port Scan:
+#### 7.1.9 Port Scan
 
 Evaluated signatures:
 
@@ -423,7 +425,9 @@ Metrics:
 | Accuracy  |  88.5215%|
 |    F1     |  93.9113%|
 
-#### 7.1.10 Ransomware attacks:
+#### 7.1.10 Ransomware attacks
+
+Evaluated signatures: none (no alerts were raised).
 
 Metrics:
 
@@ -442,36 +446,37 @@ Metrics:
 | Accuracy  |  0.0000%|
 |    F1     |  0.0000%|
 
-#### 7.1.11 SQL Injection:
+#### 7.1.11 SQL Injection
 
 Evaluated signatures:
 
 | Number  |             Type|
 |-------- |-------------------------------|
+|  4,352  |    SQLi: sqlmap user agent|
 |  842    |    SQLi: time-based in URI|
 |  480    |  SQLi: stacked query in URI|
 |  300    | SQLi: OR/AND tautology in URI|
 |   60    |   SQLi: UNION SELECT in URI|
-|   14    |        Recon: SYN scan|
+|   15    |        Recon: SYN scan|
 
 Metrics:
 
 |    Type    |   Number|
 | -----------| -----------|
-|     TP     |   16,994|
-|     FN     |   34,209|
+|     TP     |   50,951|
+|     FN     |    252|
 |     FP     |      0|
 |     TN     |      0|
 |    Total   |   51,203|
 |            | |
-|   Recall   |  33.1895%|
+|   Recall   |  99.5078%|
 |  Precision |  100.0000%|
 |     FPR    |     N/A|
 |     TNR    |     N/A|
-|  Accuracy  |  33.1895%|
-|     F1     |  49.8380%|
+|  Accuracy  |  99.5078%|
+|     F1     |  99.7533%|
 
-#### 7.1.12 Uploading attack:
+#### 7.1.12 Uploading attack
 
 Evaluated signatures:
 
@@ -502,7 +507,7 @@ Metrics:
 | Accuracy  |  91.3615%|
 |    F1     |  95.4858%|
 
-#### 7.1.13 Vulnerability Scanner:
+#### 7.1.13 Vulnerability Scanner
 
 Evaluated signatures:
 
@@ -549,28 +554,34 @@ Metrics:
 | Accuracy  |  99.7210%|
 |    F1     |  99.8603%|
 
-#### 7.1.14 XSS attack:
+#### 7.1.14 XSS attack
+
+Evaluated signatures:
+
+| Number |                      Type|
+|--------| -----------------------------------------------|
+|   6    | Vulnerability scanner: excessive 404 responses|
 
 Metrics:
 
 |   Type    |  Number|
 |-----------| ---------|
-|    TP     |     0|
-|    FN     |  15,915|
+|    TP     |    75|
+|    FN     |  15,840|
 |    FP     |     0|
 |    TN     |     0|
 |   Total   |  15,915|
 |           | |
-|  Recall   |  0.0000%|
-| Precision |    N/A|
+|  Recall   |  0.4713%|
+| Precision |  100.0000%|
 |    FPR    |    N/A|
 |    TNR    |    N/A|
-| Accuracy  |  0.0000%|
-|    F1     |  0.0000%|
+| Accuracy  |  0.4713%|
+|    F1     |  0.9381%|
 
 ### 7.2 Training (Benign)
 
-#### 7.2.1 Distance:
+#### 7.2.1 Distance
 
 Evaluated signatures:
 
@@ -596,7 +607,7 @@ Metrics:
 | Accuracy  |  98.9981%|
 |    F1     |   0.0000%|
 
-#### 7.2.2 Flame Sensor:
+#### 7.2.2 Flame Sensor
 
 Evaluated signatures:
 
@@ -622,7 +633,7 @@ Metrics:
 | Accuracy  | 99.1029%|
 |    F1     | 0.0000%|
 
-#### 7.2.3 Heart Rate:
+#### 7.2.3 Heart Rate
 
 Evaluated signatures:
 
@@ -644,10 +655,10 @@ Metrics:
 | Precision |  0.0000%|
 |    FPR    |  0.0097%|
 |    TNR    |  99.9903%|
-| Accuracy  |  99.9903%v
+| Accuracy  |  99.9903%|
 |    F1     |  0.0000%|
 
-#### 7.2.4 IR Reciever:
+#### 7.2.4 IR Receiver
 
 Evaluated signatures:
 
@@ -673,7 +684,7 @@ Metrics:
 |  Accuracy  |  98.8825%|
 |     F1     |   0.0000%|
 
-#### 7.2.5 Modbus:
+#### 7.2.5 Modbus
 
 Evaluated signatures:
 
@@ -698,7 +709,7 @@ Metrics:
 |  Accuracy  |  100.0000%|
 |     F1     |     N/A|
 
-#### 7.2.6 ph Value:
+#### 7.2.6 pH Value
 
 Evaluated signatures:
 
@@ -723,7 +734,7 @@ Metrics:
 |  Accuracy   | 98.8938%|
 |     F1      | 0.0000%|
 
-#### 7.2.7 Soil Moisture:
+#### 7.2.7 Soil Moisture
 
 Evaluated signatures:
 
@@ -748,7 +759,7 @@ Metrics:
 |  Accuracy  |  98.3281%|
 |     F1     |   0.0000%|
 
-#### 7.2.8 Sound Sensor:
+#### 7.2.8 Sound Sensor
 
 Evaluated signatures:
 
@@ -774,7 +785,7 @@ Metrics:
 |  Accuracy   | 98.7066%|
 |     F1      |  0.0000%|
 
-#### 7.2.9 Temperature and Humidity:
+#### 7.2.9 Temperature and Humidity
 
 Evaluated signatures:
 
@@ -802,7 +813,7 @@ Metrics:
 |  Accuracy   | 99.5165%|
 |     F1      |  0.0000%|
 
-#### 7.2.10 Water Levels:
+#### 7.2.10 Water Levels
 
 Evaluated signatures:
 
@@ -819,7 +830,7 @@ Metrics:
 |    FN     |      0|
 |    FP     |   46,203|
 |    TN     |  2,249,085|
-|   Total   |  2,249,085|
+|   Total   |  2,295,288|
 |           | |
 |  Recall   |     N/A|
 | Precision |   0.0000%|
@@ -830,7 +841,7 @@ Metrics:
 
 ### 7.3 Test
 
-#### 7.3.1 Monday:
+#### 7.3.1 Monday
 
 Evaluated signatures:
 
@@ -868,7 +879,7 @@ Metrics:
 | Accuracy  |  99.6412%|
 |    F1     |  0.0000%|
 
-#### 7.3.2 Tuesday:
+#### 7.3.2 Tuesday
 
 Evaluated signatures:
 
@@ -906,7 +917,7 @@ Metrics:
 | Accuracy  |  95.8554%|
 |    F1     |  0.0000%|
 
-#### 7.3.3 Wednesday:
+#### 7.3.3 Wednesday
 
 Evaluated signatures:
 
@@ -950,7 +961,7 @@ Metrics:
 | Accuracy  |  97.0096%|
 |    F1     |  47.7895%|
 
-#### 7.3.4 Thursday:
+#### 7.3.4 Thursday
 
 Evaluated signatures:
 
@@ -1000,7 +1011,7 @@ Metrics:
 | Accuracy  |  97.5747%|
 |    F1     |  95.3109%|
 
-#### 7.3.5 Friday:
+#### 7.3.5 Friday
 
 Evaluated signatures:
 
@@ -1051,7 +1062,7 @@ The results from the benign training data show that some rules cause false posit
 
 ## 8. Discussion
 ### 8.1 Effectiveness of Simple Signatures
-From the data we can see that the effectiveness of the rules varies from attack to attack. As an example, the rules detected a TCP DDoS attack over 99% of the time, while SQL injection attacks were detected only about a third of the time. We also see that the simplicity of the rules allows for some overlap in detection of suspicious activity, as seen in the example of the vulnerability scanner, which also set off rules for XSS attacks and SQL injections. On the other hand, the simpler rules also risk false positives, as they have a higher risk of mistaking normal traffic for an attack scenario.
+From the data we can see that the effectiveness of the rules varies from attack to attack. As an example, the rules detected TCP SYN flood attacks over 99% of the time and SQL injection attacks 99.5% of the time, while OS fingerprinting was detected only about 27% of the time. We also see that the simplicity of the rules allows for some overlap in detection of suspicious activity, as seen in the example of the vulnerability scanner, which also set off rules for XSS attacks and SQL injections. On the other hand, the simpler rules also risk false positives, as they have a higher risk of mistaking normal traffic for an attack scenario.
 
 ### 8.2 Detection vs. False Positives
 An important part of the discussion of security is the tradeoff between detection and false positives. A set of rules which is broad enough to catch all types of attack is inevitably going to generate false positives, as some attacks are practically indistinguishable from legitimate traffic. The decision to be made is, in essence, "What degree of false positives is acceptable in order to detect attacks?", or alternatively, "What degree of undetected attacks is acceptable in order to eliminate false positives?"
@@ -1066,18 +1077,20 @@ Another limitation of the program is the simplicity of its memory. Suricata does
 Finally, Suricata is also heavily dependent on knowledge of the legitimate goings-on of the system in order to identify legitimate traffic. This means that it is impractical to import rules wholesale from one network to another, instead requiring thresholds for matters like number of requests per minute, or what ports indicate legitimate or illicit activity, to be recalibrated from system to system.
 
 ## 9. Conclusion
-The aim of this project was to see how well custom signature-based rules in Suricata can distinguish malicious traffic from normal traffic. The results show that the effectiveness varies from attack to attack. The TCP SYN flood was detected in over 99% of the cases, while SQL injection was only detected in about a third of the cases. The false alarms on the normal traffic were few, but show that some rules may need further calibration. The results from CIC-IDS-2017 varied from day to day. The rules worked well on the days with the attacks they were written for, but missed the attacks that were not part of the scope. Finally, the rules and their thresholds depend on the normal traffic and load in the network in which they were created. The rules cannot be moved to another network without first being adjusted.
+The aim of this project was to see how well custom signature-based rules in Suricata can distinguish malicious traffic from normal traffic. The results show that the effectiveness varies from attack to attack. The TCP SYN flood was detected in over 99% of the cases, while OS fingerprinting was only detected in about 27% of the cases. The false alarms on the normal traffic were few, but show that some rules may need further calibration. The results from CIC-IDS-2017 varied from day to day. The rules worked well on the days with the attacks they were written for, but missed the attacks that were not part of the scope. Finally, the rules and their thresholds depend on the normal traffic and load in the network in which they were created. The rules cannot be moved to another network without first being adjusted.
 
 ## 10. Individual contributions
 
 ### Fabrizio Sclosa
 I worked mainly on the project datasets, the implementation and testing of the evaluation scripts, and parts of the Suricata detection rules, which together make up the experimental side of the project. In addition, I worked on setting up the environment and documenting the repository structure and usage.
 
-At first, I searched for and selected possible datasets to work with (both for developing the rules and for testing them). I opted for Edge-IIoTset as the training set because of its broad range of attack patterns and benign traffic, and CIC-IDS-2017 as the test set (using the improved CSV flows along with the original PCAPs). During the selection process, I extensively tested [UNSW-NB15](https://research.unsw.edu.au/projects/unsw-nb15-dataset) as well, but in the end excluded it, since it was out of scope.
+At first, I compared the candidate datasets for developing and testing the rules, including [UNSW-NB15](https://research.unsw.edu.au/projects/unsw-nb15-dataset), which I tested extensively but in the end excluded, since it was out of scope. I then defined how the selected datasets would be used: Edge-IIoTset as the training set, because of its broad range of attack patterns and benign traffic, and CIC-IDS-2017 as the test set, using the corrected CSV flows together with the original pcap files.
 
 Secondly, I built the evaluation scripts, `evaluate_training.py` and `evaluate_test.py`. They serve the same purpose but compare `eve.json` against the ground truth CSVs in different ways: the former matches by the pair timestamp + pcap_cnt, the latter by packet flow using the 5-tuple (IPs, ports and protocol). This difference is due to the fact that the two ground-truth CSVs have different structures and labelling criteria. Both scripts report the confusion matrix of the Suricata analysis, which includes true positives, false negatives, false positives, true negatives, recall, precision, false positive rate, true negative rate, accuracy and F1. These scripts made it possible to find a proper matching mechanism between the Suricata alerts and the ground truth, and also allowed a quick performance overview of the tested rules.
 
 Along with this experimental part of the project, I adapted and fixed the `run.sh` script to allow centralized control of the Python scripts, Suricata and the datasets, which made the repository easier to use. Finally, I prepared and configured the setup, the usage documentation and the repository layout described in the `README.md`.
+
+In the final stage of the project, I reviewed the report for errors and inconsistencies, checking the metrics in the results tables and making sure that the text was consistent with the results and the rules.
 
 Contribution in the report: 1, 2, 3.
 
@@ -1108,7 +1121,7 @@ At the start of the project, I found Edge-IIoTset, which we used as the training
 
 I wrote the rules for XSS, port scanning and the uploading attack. The XSS rules look for HTML tags and JavaScript code in the URL and the request body. The port scanning rules look for many replies from closed ports, packets with odd TCP flags and SYN packets with unusual window sizes. The uploading rules look for PHP files being uploaded to the server and then requested from the uploads folder, which is how a web shell is used.
 
-Contribution in the report: 4.1, 4.3.5, 4.3.6, 4.3.7, 4.5, 6.
+Contribution in the report: 4.1, 4.3.5, 4.3.6, 4.3.7, 4.4, 6.
 
 ## References
 [1] https://www.ibm.com/think/topics/intrusion-detection-system

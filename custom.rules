@@ -78,6 +78,12 @@ alert http any any => any any (msg:"Brute force: common username with failed log
 
 alert http any any => any any (msg:"Brute force: common password with failed login"; flow:established; http.request_body; pcre:"/(?:^|&)password=(?:123456|admin|12345678|123456789|12345|password|Aa123456|1234567890|Pass@123|admin123|1234567|123123|111111|P@ssw0rd|Admin@123|112233|admintelecom|Aa@123456)(?:&|$)/i"; http.stat_code; content:"401"; detection_filter: track by_src, count 5, seconds 60; sid:1002001;)
 
+alert http any any -> any any (msg:"Brute force: repeated POST to login page"; flow:to_server,established; http.method; content:"POST"; http.uri; content:"login"; nocase; http.request_body; content:"password="; nocase; fast_pattern; detection_filter:track by_src, count 10, seconds 60; sid:1004010;)
+
+alert http any any => any any (msg:"Brute force: repeated failed logins"; flow:established; http.method; content:"POST"; http.request_body; content:"password="; nocase; http.stat_code; content:"302"; http.location; content:"login"; nocase; detection_filter:track by_src, count 10, seconds 60; sid:1004011;)
+
+alert http any any -> any any (msg:"Brute force: repeated 'Login failed' pages"; flow:from_server,established; http.response_body; content:"Login failed"; nocase; fast_pattern; detection_filter:track by_dst, count 10, seconds 60; sid:1004012;)
+
 # Vulnerability scanner
 
 alert http any any -> any any (msg:"Vulnerability scanner: WPScan"; flow:to_server,established; http.user_agent; content:"WPScan"; nocase; fast_pattern; sid:1008003;)
@@ -99,6 +105,8 @@ alert http any any -> any any (msg:"Vulnerability scanner: ffuf"; flow:to_server
 alert http any any -> any any (msg:"Vulnerability scanner: dirsearch"; flow:to_server,established; http.user_agent; content:"dirsearch"; nocase; fast_pattern; sid:1008011;)
 
 alert http any any -> any any (msg:"Vulnerability scanner: Nikto"; flow:to_server,established; http.user_agent; content:"Nikto"; nocase; fast_pattern; sid:1007001;)
+
+alert http any any -> any any (msg:"SQLi: sqlmap user agent"; flow:to_server,established; http.user_agent; content:"sqlmap"; nocase; fast_pattern; sid:1000030;)
 
 # Web shell
 
